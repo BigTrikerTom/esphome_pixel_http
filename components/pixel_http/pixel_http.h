@@ -18,3 +18,4 @@ class PixelHttp : public Component {
 
 }  // namespace pixel_http
 }  // namespace esphome
+

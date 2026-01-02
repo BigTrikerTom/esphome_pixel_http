@@ -1,7 +1,7 @@
 #pragma once
 #include "esphome/core/component.h"
 #include "esphome/components/light/addressable_light.h"
-#include "esphome/components/web_server/web_server.h"
+#include <ESPAsyncWebServer.h>
 
 namespace pixel_http {
 

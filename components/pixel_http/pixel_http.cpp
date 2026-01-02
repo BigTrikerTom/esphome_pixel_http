@@ -15,3 +15,4 @@ void PixelHttp::setup() {
 
 }  // namespace pixel_http
 }  // namespace esphome
+

@@ -4,16 +4,15 @@ namespace esphome {
 namespace pixel_http {
 
 void PixelHttp::setup() {
-  server_ = new AsyncServer(9090);
-  server_->onClient([this](void *arg, AsyncClient *client) {
-    this->client_ = client;
-  }, nullptr);
-  server_->begin();
+  server_.begin();
+  server_.setNoDelay(true);
 }
 
 void PixelHttp::loop() {
-  if (!client_ || !client_->connected())
+  if (!client_ || !client_.connected()) {
+    client_ = server_.available();
     return;
+  }
 
   if (millis() - last_update_ < 450)
     return;
@@ -23,24 +22,24 @@ void PixelHttp::loop() {
 }
 
 void PixelHttp::send_pixels_() {
-  if (!light_)
+  if (!light_ || !client_.connected())
     return;
 
   uint16_t count = light_->size();
-  std::string buffer;
-  buffer.reserve(count * 3 + 2);
 
-  buffer.push_back(count & 0xFF);
-  buffer.push_back((count >> 8) & 0xFF);
+  // Header: LED count (little endian)
+  uint8_t header[2];
+  header[0] = count & 0xFF;
+  header[1] = (count >> 8) & 0xFF;
 
+  client_.write(header, 2);
+
+  // Send pixels
   for (uint16_t i = 0; i < count; i++) {
     auto c = light_->get_pixel(i);
-    buffer.push_back(c.r);
-    buffer.push_back(c.g);
-    buffer.push_back(c.b);
+    uint8_t rgb[3] = {c.r, c.g, c.b};
+    client_.write(rgb, 3);
   }
-
-  client_->write(buffer.data(), buffer.size());
 }
 
 }  // namespace pixel_http

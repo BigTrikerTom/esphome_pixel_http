@@ -4,13 +4,22 @@ namespace esphome {
 namespace pixel_http {
 
 void PixelHttp::setup() {
-  server_.begin();
-  server_.setNoDelay(true);
+  server_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+
+  sockaddr_in addr{};
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(9090);
+  addr.sin_addr.s_addr = INADDR_ANY;
+
+  bind(server_fd_, (sockaddr *)&addr, sizeof(addr));
+  listen(server_fd_, 1);
 }
 
 void PixelHttp::loop() {
-  if (!client_ || !client_.connected()) {
-    client_ = server_.available();
+  if (client_fd_ < 0) {
+    sockaddr_in client_addr{};
+    socklen_t len = sizeof(client_addr);
+    client_fd_ = accept(server_fd_, (sockaddr *)&client_addr, &len);
     return;
   }
 
@@ -22,23 +31,21 @@ void PixelHttp::loop() {
 }
 
 void PixelHttp::send_pixels_() {
-  if (!light_ || !client_.connected())
+  if (!light_ || client_fd_ < 0)
     return;
 
   uint16_t count = light_->size();
 
-  // Header: LED count (little endian)
   uint8_t header[2];
   header[0] = count & 0xFF;
   header[1] = (count >> 8) & 0xFF;
 
-  client_.write(header, 2);
+  send(client_fd_, header, 2, 0);
 
-  // Send pixels
   for (uint16_t i = 0; i < count; i++) {
     auto c = light_->get_pixel(i);
     uint8_t rgb[3] = {c.r, c.g, c.b};
-    client_.write(rgb, 3);
+    send(client_fd_, rgb, 3, 0);
   }
 }
 

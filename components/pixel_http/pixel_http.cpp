@@ -34,9 +34,10 @@ void PixelHttp::send_pixels_() {
   if (!state_ || client_fd_ < 0)
     return;
 
-  auto *output = state_->get_output();
-  auto *light = dynamic_cast<light::AddressableLight *>(output);
+  if (!state_->get_traits().is_addressable())
+    return;
 
+  auto *light = static_cast<light::AddressableLight *>(state_->get_output());
   if (!light)
     return;
 
@@ -60,6 +61,7 @@ void PixelHttp::send_pixels_() {
     send(client_fd_, rgb, 3, 0);
   }
 }
+
 
 }  // namespace pixel_http
 }  // namespace esphome

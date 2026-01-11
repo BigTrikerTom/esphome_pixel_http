@@ -31,10 +31,14 @@ void PixelHttp::loop() {
 }
 
 void PixelHttp::send_pixels_() {
-  if (!light_ || client_fd_ < 0)
+  if (!state_ || client_fd_ < 0)
     return;
 
-  uint16_t count = light_->size();
+  auto *light = state_->get_addressable();
+  if (!light)
+    return;
+
+  uint16_t count = light->size();
 
   uint8_t header[2];
   header[0] = count & 0xFF;
@@ -43,7 +47,7 @@ void PixelHttp::send_pixels_() {
   send(client_fd_, header, 2, 0);
 
   for (uint16_t i = 0; i < count; i++) {
-    auto view = (*light_)[i];
+    auto view = (*light)[i];
 
     uint8_t rgb[3] = {
       (uint8_t)view.get_red(),

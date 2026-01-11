@@ -43,8 +43,14 @@ void PixelHttp::send_pixels_() {
   send(client_fd_, header, 2, 0);
 
   for (uint16_t i = 0; i < count; i++) {
-    auto c = light_->get_pixel(i);
-    uint8_t rgb[3] = {c.r, c.g, c.b};
+    auto c = light_->get_pixel_color(i);
+
+    uint8_t rgb[3] = {
+      (uint8_t)c.r,
+      (uint8_t)c.g,
+      (uint8_t)c.b
+    };
+
     send(client_fd_, rgb, 3, 0);
   }
 }

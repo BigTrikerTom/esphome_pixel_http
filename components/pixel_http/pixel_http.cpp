@@ -34,7 +34,9 @@ void PixelHttp::send_pixels_() {
   if (!state_ || client_fd_ < 0)
     return;
 
-  auto *light = state_->get_addressable();
+  auto *output = state_->get_output();
+  auto *light = dynamic_cast<light::AddressableLight *>(output);
+
   if (!light)
     return;
 

@@ -8,7 +8,7 @@ PixelHttp = pixel_http_ns.class_("PixelHttp", cg.Component)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(PixelHttp),
-    cv.Required(CONF_LIGHT_ID): cv.use_id(light.AddressableLightState),
+    cv.Required(CONF_LIGHT_ID): cv.use_id(light.LightState),
 })
 
 async def to_code(config):

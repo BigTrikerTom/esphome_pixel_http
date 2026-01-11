@@ -1,29 +1,29 @@
 #pragma once
 
-#include "esphome/core/component.h"
-#include "esphome/components/light/addressable_light.h"
-
-#include "lwip/sockets.h"
-#include "lwip/netdb.h"
+#include "esphome.h"
+#include <FastLED.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncWebSocket.h>
 
 namespace esphome {
 namespace pixel_http {
 
-class PixelHttp : public Component {
+class PixelHTTPComponent : public Component {
  public:
-  void set_light(light::AddressableLight *light) { light_ = light; }
-
+  PixelHTTPComponent();
   void setup() override;
   void loop() override;
 
- protected:
-  light::AddressableLight *light_{nullptr};
+  void show();
 
-  int server_fd_{-1};
-  int client_fd_{-1};
-  uint32_t last_update_{0};
+ private:
+  void setupHttpEndpoints();
+  void setupWebSocket();
 
-  void send_pixels_();
+  CRGB leds[120];  // Anzahl LEDs anpassen
+  AsyncWebServer *server;
+  AsyncWebSocket *ws;
 };
 
 }  // namespace pixel_http

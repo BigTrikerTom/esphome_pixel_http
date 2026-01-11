@@ -31,17 +31,10 @@ void PixelHttp::loop() {
 }
 
 void PixelHttp::send_pixels_() {
-  if (!state_ || client_fd_ < 0)
+  if (!light_ || client_fd_ < 0)
     return;
 
-  if (!state_->get_traits().is_addressable())
-    return;
-
-  auto *light = static_cast<light::AddressableLight *>(state_->get_output());
-  if (!light)
-    return;
-
-  uint16_t count = light->size();
+  uint16_t count = light_->size();
 
   uint8_t header[2];
   header[0] = count & 0xFF;
@@ -50,7 +43,7 @@ void PixelHttp::send_pixels_() {
   send(client_fd_, header, 2, 0);
 
   for (uint16_t i = 0; i < count; i++) {
-    auto view = (*light)[i];
+    auto view = (*light_)[i];
 
     uint8_t rgb[3] = {
       (uint8_t)view.get_red(),
@@ -61,7 +54,6 @@ void PixelHttp::send_pixels_() {
     send(client_fd_, rgb, 3, 0);
   }
 }
-
 
 }  // namespace pixel_http
 }  // namespace esphome

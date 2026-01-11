@@ -3,56 +3,58 @@
 namespace esphome {
 namespace pixel_http {
 
-void PixelHttp::setup() {
-  server_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+PixelHTTPComponent::PixelHTTPComponent() : server(nullptr), ws(nullptr) {}
 
-  sockaddr_in addr{};
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(9090);
-  addr.sin_addr.s_addr = INADDR_ANY;
+void PixelHTTPComponent::setup() {
+  FastLED.addLeds<WS2812, 27, GRB>(leds, 120);  // LED_PIN und NUM_LEDS anpassen
+  FastLED.clear();
+  FastLED.show();
 
-  bind(server_fd_, (sockaddr *)&addr, sizeof(addr));
-  listen(server_fd_, 1);
+  server = new AsyncWebServer(80);
+  ws = new AsyncWebSocket("/ws");
+
+  setupHttpEndpoints();
+  setupWebSocket();
+
+  server->begin();
 }
 
-void PixelHttp::loop() {
-  if (client_fd_ < 0) {
-    sockaddr_in client_addr{};
-    socklen_t len = sizeof(client_addr);
-    client_fd_ = accept(server_fd_, (sockaddr *)&client_addr, &len);
-    return;
-  }
-
-  if (millis() - last_update_ < 450)
-    return;
-
-  last_update_ = millis();
-  send_pixels_();
+void PixelHTTPComponent::loop() {
+  ws->cleanupClients();
 }
 
-void PixelHttp::send_pixels_() {
-  if (!light_ || client_fd_ < 0)
-    return;
+void PixelHTTPComponent::setupHttpEndpoints() {
+  server->on("/pixels.bin", HTTP_GET, [this](AsyncWebServerRequest *request){
+    request->send_P(200, "application/octet-stream", (char*)leds, 120 * 3);
+  });
 
-  uint16_t count = light_->size();
+  server->on("/info.json", HTTP_GET, [this](AsyncWebServerRequest *request){
+    String json = "{\"led_count\": 120}";
+    request->send(200, "application/json", json);
+  });
 
-  uint8_t header[2];
-  header[0] = count & 0xFF;
-  header[1] = (count >> 8) & 0xFF;
+  server->on("/set", HTTP_POST, [this](AsyncWebServerRequest *request){
+    // später JSON parsen und leds[] updaten
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
+  });
+}
 
-  send(client_fd_, header, 2, 0);
+void PixelHTTPComponent::setupWebSocket() {
+  ws->onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client,
+                     AwsEventType type, void *arg, uint8_t *data, size_t len){
+    if(type == WS_EVT_CONNECT){
+      ESP_LOGD("PixelHTTP", "WS Client connected: %u", client->id());
+    } else if(type == WS_EVT_DISCONNECT){
+      ESP_LOGD("PixelHTTP", "WS Client disconnected: %u", client->id());
+    } else if(type == WS_EVT_DATA){
+      // JSON empfangen und leds[] updaten
+    }
+  });
+  server->addHandler(ws);
+}
 
-  for (uint16_t i = 0; i < count; i++) {
-    auto view = (*light_)[i];
-
-    uint8_t rgb[3] = {
-      (uint8_t)view.get_red(),
-      (uint8_t)view.get_green(),
-      (uint8_t)view.get_blue()
-    };
-
-    send(client_fd_, rgb, 3, 0);
-  }
+void PixelHTTPComponent::show() {
+  FastLED.show();
 }
 
 }  // namespace pixel_http

@@ -7,6 +7,15 @@ PixelHTTPComponent::PixelHTTPComponent(int num_leds) : NUM_LEDS(num_leds) {
   leds = new CRGB[NUM_LEDS];
 }
 
+// Globale Instanz
+PixelHTTPComponent *pixel_instance = nullptr;
+
+// Diese Funktion wird von ESPHome beim Start aufgerufen
+void register_pixel_http(int num_leds) {
+  pixel_instance = new PixelHTTPComponent(num_leds);
+  App.register_component(pixel_instance);
+}
+
 void PixelHTTPComponent::setup() {
   // FastLED Setup
   FastLED.addLeds<WS2812, 27, GRB>(leds, NUM_LEDS);

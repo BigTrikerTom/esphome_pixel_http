@@ -1,6 +1,3 @@
 esphome:
   name: pixel_http
   version: "1.0"
-  dependencies: []
-  requirements: []
-  libraries: [ "FastLED@^1.6.0", "ESPAsyncWebServer", "AsyncTCP" ]

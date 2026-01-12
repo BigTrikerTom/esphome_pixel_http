@@ -13,14 +13,30 @@ void PixelHTTPComponent::setup() {
   FastLED.show();
 
   // AsyncWebServer auf Port 81
-  server = new AsyncWebServer(81); // Port geändert von 80 auf 81
+  server = new AsyncWebServer(81);
   ws = new AsyncWebSocket("/ws");
 
   setupHttpEndpoints();
   setupWebSocket();
 
-  server->begin();
+  // Eigenen Task starten
+  xTaskCreate(
+    [](void* param){
+      PixelHTTPComponent* self = (PixelHTTPComponent*)param;
+      self->server->begin();
+      ESP_LOGI("PixelHTTP", "Server läuft auf Port 81");
+      for(;;){
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+      }
+    },
+    "pixel_http_task",   // Task Name
+    4096,                // Stack Size (anpassen bei Fehler)
+    this,                // Parameter
+    1,                   // Priority
+    nullptr              // Task Handle
+  );
 }
+
 
 // ---------------- HTTP ----------------
 void PixelHTTPComponent::setupHttpEndpoints() {

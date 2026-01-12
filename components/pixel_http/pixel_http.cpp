@@ -4,14 +4,16 @@
 namespace esphome {
 namespace pixel_http {
 
-PixelHTTPComponent::PixelHTTPComponent() {}
+PixelHTTPComponent::PixelHTTPComponent(int num_leds) : NUM_LEDS(num_leds) {
+  leds = new CRGB[NUM_LEDS];  // dynamisches Array
+}
 
 void PixelHTTPComponent::setup() {
-  FastLED.addLeds<WS2812, 27, GRB>(leds, 110);
+  FastLED.addLeds<WS2812, 27, GRB>(leds, NUM_LEDS);
   FastLED.clear();
   FastLED.show();
 
-  // ESPHome Service registrieren
+  // ESPHome Services registrieren
   App.register_service("pixel_http.set_pixels", [this](std::vector<std::string> args){
     if (args.empty()) return;
     DynamicJsonDocument doc(4096);
@@ -20,11 +22,10 @@ void PixelHTTPComponent::setup() {
     this->set_pixels_from_json(doc.as<JsonArray>());
   });
 
-  // Optional: Service für Framebuffer-Ausgabe
   App.register_service("pixel_http.get_pixels", [this](std::vector<std::string> args){
     DynamicJsonDocument doc(4096);
     JsonArray arr = doc.to<JsonArray>();
-    for(int i=0;i<110;i++){
+    for(int i=0;i<NUM_LEDS;i++){
       JsonObject obj = arr.createNestedObject();
       obj["index"] = i;
       obj["r"] = leds[i].r;
@@ -44,7 +45,7 @@ void PixelHTTPComponent::show() {
 }
 
 void PixelHTTPComponent::set_pixel(int index, int r, int g, int b) {
-  if(index < 0 || index >= 110) return;
+  if(index < 0 || index >= NUM_LEDS) return;
   leds[index].r = r;
   leds[index].g = g;
   leds[index].b = b;

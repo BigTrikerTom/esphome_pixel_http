@@ -1,13 +1,10 @@
 #pragma once
 
-#include "fl/str.h"
-#include "fl/type_traits.h"
+#include "fl/stl/type_traits.h"
 #include "fl/int.h"
-#include "fl/stdint.h"
-#include "fl/force_inline.h"
-#include "fl/memfill.h"
-#include <string.h>
 #include "fl/compiler_control.h"
+#include "fl/stl/bit_cast.h"
+#include "fl/stl/string.h"
 
 namespace fl {
 
@@ -149,7 +146,8 @@ template <typename T> struct Hash<T *> {
             u32 key_u = reinterpret_cast<fl::uptr>(key);
             return fast_hash32(key_u);
         } else {
-            return MurmurHash3_x86_32(key, sizeof(T *));
+            // Hash the pointer value (address), not the data it points to
+            return MurmurHash3_x86_32(&key, sizeof(T *));
         }
     }
 };
@@ -173,13 +171,6 @@ template <typename T> struct Hash<fl::shared_ptr<T>> {
     u32 operator()(const T &key) const noexcept {
         auto hasher = Hash<T *>();
         return hasher(key.get());
-    }
-};
-
-template <typename T> struct Hash<fl::WeakPtr<T>> {
-    u32 operator()(const fl::WeakPtr<T> &key) const noexcept {
-        fl::uptr val = key.ptr_value();
-        return MurmurHash3_x86_32(&val, sizeof(fl::uptr));
     }
 };
 

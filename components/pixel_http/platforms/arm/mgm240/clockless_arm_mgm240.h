@@ -1,12 +1,10 @@
 #pragma once
 
 // Include required FastLED headers
-#include "fl/namespace.h"
 #include "eorder.h"
 #include "fastled_delay.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/chipsets/timing_traits.h"
+namespace fl {
 // ARM Cortex-M33 DWT (Data Watchpoint and Trace) registers for cycle-accurate timing
 #define ARM_DEMCR               (*(volatile uint32_t *)0xE000EDFC) // Debug Exception and Monitor Control
 #define ARM_DEMCR_TRCENA                (1 << 24)        // Enable debugging & monitoring blocks
@@ -15,7 +13,7 @@ FASTLED_NAMESPACE_BEGIN
 #define ARM_DWT_CYCCNT          (*(volatile uint32_t *)0xE0001004) // Cycle count register
 
 // Enable clockless LED support for MGM240
-#define FASTLED_HAS_CLOCKLESS 1
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
 /// @brief ARM Cortex-M33 clockless LED controller for MGM240
 ///
@@ -44,8 +42,16 @@ FASTLED_NAMESPACE_BEGIN
 /// @tparam FLIP Bit order flip flag
 /// @tparam WAIT_TIME Minimum wait time between updates (microseconds)
 
-template <uint8_t DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <uint8_t DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
+    // Extract timing values from ChipsetTiming struct and convert from nanoseconds to clock cycles
+    // Formula: cycles = (nanoseconds * CPU_MHz + 500) / 1000
+    // The +500 provides rounding to nearest integer
+    // MGM240 uses DWT cycle counter at F_CPU (39MHz or 78MHz)
+    static constexpr uint32_t T1 = (TIMING::T1 * (F_CPU / 1000000UL) + 500) / 1000;
+    static constexpr uint32_t T2 = (TIMING::T2 * (F_CPU / 1000000UL) + 500) / 1000;
+    static constexpr uint32_t T3 = (TIMING::T3 * (F_CPU / 1000000UL) + 500) / 1000;
+
     typedef typename FastPin<DATA_PIN>::port_ptr_t data_ptr_t;
     typedef typename FastPin<DATA_PIN>::port_t data_t;
 
@@ -170,5 +176,4 @@ protected:
     }
 
 };
-
-FASTLED_NAMESPACE_END
+}  // namespace fl

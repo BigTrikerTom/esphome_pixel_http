@@ -1,15 +1,14 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include "fl/int.h"
 
 #include "crgb.h"
 #include "fl/geometry.h"
 #include "fl/gradient.h"
-#include "fl/namespace.h"
 #include "fl/unused.h"
 #include "fl/xymap.h"
-#include "fl/move.h"
+#include "fl/stl/move.h"
 
 namespace fl {
 

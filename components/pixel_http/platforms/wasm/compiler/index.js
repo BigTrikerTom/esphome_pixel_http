@@ -22,22 +22,28 @@
 /// <reference path="./types.d.ts" />
 
 
-import { JsonUiManager } from './modules/ui_manager.js';
-import { GraphicsManager } from './modules/graphics_manager.js';
-import { GraphicsManagerThreeJS } from './modules/graphics_manager_threejs.js';
-import { isDenseGrid } from './modules/graphics_utils.js';
-import { JsonInspector } from './modules/json_inspector.js';
-import { VideoRecorder } from './modules/video_recorder.js';
-// Import UI recording modules to make them available globally
-import './modules/ui_recorder.js';
-import './modules/ui_playback.js';
-import './modules/ui_recorder_test.js';
+// UI System imports
+import { JsonUiManager } from './modules/ui/ui_manager.js';
 
-// Import new pure JavaScript modules
-import { FastLEDAsyncController } from './modules/fastled_async_controller.js';
-import './modules/fastled_callbacks.js';
-import { fastLEDEvents, fastLEDPerformanceMonitor } from './modules/fastled_events.js';
-import { FASTLED_DEBUG_LOG, FASTLED_DEBUG_ERROR, FASTLED_DEBUG_TRACE } from './modules/fastled_debug_logger.js';
+// Graphics System imports
+import { GraphicsManager } from './modules/graphics/graphics_manager.js';
+import { GraphicsManagerThreeJS } from './modules/graphics/graphics_manager_threejs.js';
+
+// Utility imports
+import { JsonInspector } from './modules/utils/json_inspector.js';
+
+// Recording System imports
+import { VideoRecorder } from './modules/recording/video_recorder.js';
+// Import UI recording modules to make them available globally
+import './modules/recording/ui_recorder.js';
+import './modules/recording/ui_playback.js';
+import './modules/recording/ui_recorder_test.js';
+
+// Core FastLED Integration imports
+import { FastLEDAsyncController } from './modules/core/fastled_async_controller.js';
+import './modules/core/fastled_callbacks.js';
+import { fastLEDEvents, fastLEDPerformanceMonitor } from './modules/core/fastled_events.js';
+import { FASTLED_DEBUG_LOG, FASTLED_DEBUG_ERROR, FASTLED_DEBUG_TRACE } from './modules/core/fastled_debug_logger.js';
 
 /**
  * @typedef {Object} FrameData
@@ -49,19 +55,89 @@ import { FASTLED_DEBUG_LOG, FASTLED_DEBUG_ERROR, FASTLED_DEBUG_TRACE } from './m
 
 /**
  * @typedef {Object} ScreenMapData
- * @property {number[]} absMax - Maximum coordinates array
- * @property {number[]} absMin - Minimum coordinates array
+ * @property {number[]} [absMax] - Maximum coordinates array (computed on-demand)
+ * @property {number[]} [absMin] - Minimum coordinates array (computed on-demand)
  * @property {{ [key: string]: any }} strips - Strip configuration data
  */
 
 /** URL parameters for runtime configuration */
 const urlParams = new URLSearchParams(window.location.search);
+console.log(`⭐ index.js loading, URL: ${window.location.href}`);
+
+/**
+ * Browser Compatibility Check
+ * FastLED WASM requires OffscreenCanvas and WebGL2 support for Web Worker mode
+ */
+(function checkBrowserCompatibility() {
+  const errors = [];
+
+  // Check OffscreenCanvas support
+  if (typeof OffscreenCanvas === 'undefined') {
+    errors.push('OffscreenCanvas not supported');
+  } else {
+    // Check WebGL2 support with OffscreenCanvas
+    try {
+      const testCanvas = new OffscreenCanvas(1, 1);
+      const ctx = testCanvas.getContext('webgl2');
+      if (!ctx) {
+        errors.push('WebGL2 not supported with OffscreenCanvas');
+      }
+    } catch (error) {
+      errors.push(`OffscreenCanvas WebGL2 test failed: ${error.message}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    const errorMessage = `
+      <div style="
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #ff6b6b;
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 600px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        z-index: 10000;
+      ">
+        <h2 style="margin-top: 0;">Browser Not Supported</h2>
+        <p>This browser doesn't support the required features for FastLED WASM:</p>
+        <ul style="text-align: left;">
+          ${errors.map(err => `<li>${err}</li>`).join('')}
+        </ul>
+        <p><strong>Please use one of these browsers:</strong></p>
+        <ul style="text-align: left;">
+          <li>Chrome 69+ or Edge 79+</li>
+          <li>Firefox 105+</li>
+          <li>Safari 16.4+</li>
+        </ul>
+      </div>
+    `;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.insertAdjacentHTML('beforeend', errorMessage);
+    });
+
+    // Throw error to prevent further loading
+    throw new Error(`Browser compatibility check failed: ${errors.join(', ')}`);
+  }
+
+  console.log('✅ Browser compatibility check passed');
+})();
 
 /** Force fast 2D renderer when gfx=0 URL parameter is present */
 const FORCE_FAST_RENDERER = urlParams.get('gfx') === '0';
 
 /** Force beautiful 3D renderer when gfx=1 URL parameter is present */
 const FORCE_THREEJS_RENDERER = urlParams.get('gfx') === '1';
+
+console.log('🔍 GFX Parameter Debug:');
+console.log('  URL gfx param value:', urlParams.get('gfx'));
+console.log('  FORCE_FAST_RENDERER:', FORCE_FAST_RENDERER);
+console.log('  FORCE_THREEJS_RENDERER:', FORCE_THREEJS_RENDERER);
 
 /** Maximum number of lines to keep in stdout output display */
 const MAX_STDOUT_LINES = 50;
@@ -98,6 +174,15 @@ let containerId;
 
 /** Graphics configuration arguments */
 let graphicsArgs = {};
+
+/** Mirror canvas for main-thread video recording (receives frames from worker) */
+let mirrorCanvas = null;
+
+/** Mirror canvas 2D context for drawing received frames */
+let mirrorCanvasContext = null;
+
+/** VideoRecorder instance for main-thread recording */
+let mainThreadVideoRecorder = null;
 
 /**
  * NOTE: AsyncFastLEDController has been moved to fastled_async_controller.js
@@ -336,8 +421,6 @@ function updateCanvas(frameData) {
     return;
   }
   if (!graphicsManager) {
-    const isDenseMap = isDenseGrid(/** @type {import('./modules/graphics_utils.js').FrameData} */ (frameData));
-
     // Ensure graphicsArgs has required properties
     const currentGraphicsArgs = {
       canvasId: canvasId || 'canvas',
@@ -345,28 +428,59 @@ function updateCanvas(frameData) {
       ...graphicsArgs
     };
 
-    if (FORCE_THREEJS_RENDERER) {
-      console.log('Creating Beautiful GraphicsManager with canvas ID (forced)', canvasId);
-      graphicsManager = new GraphicsManagerThreeJS(currentGraphicsArgs);
-    } else if (FORCE_FAST_RENDERER) {
-      console.log('Creating Fast GraphicsManager with canvas ID (forced)', canvasId);
-      graphicsManager = new GraphicsManager(currentGraphicsArgs);
-    } else if (isDenseMap) {
-      console.log('Creating Fast GraphicsManager with canvas ID', canvasId);
-      graphicsManager = new GraphicsManager(currentGraphicsArgs);
-    } else {
-      console.log('Creating Beautiful GraphicsManager with canvas ID', canvasId);
-      graphicsManager = new GraphicsManagerThreeJS(currentGraphicsArgs);
+    // Try to create graphics manager - default to ThreeJS (gfx=1) if not specified
+    try {
+      if (FORCE_FAST_RENDERER) {
+        console.log('Creating Fast GraphicsManager with canvas ID (gfx=0)', canvasId);
+        graphicsManager = new GraphicsManager(currentGraphicsArgs);
+      } else {
+        // Default to ThreeJS renderer (gfx=1) if no parameter specified
+        const explicitlyRequested = FORCE_THREEJS_RENDERER ? 'gfx=1' : 'default (gfx=1)';
+        console.log(`Creating Beautiful GraphicsManager with canvas ID (${explicitlyRequested})`, canvasId);
+        graphicsManager = new GraphicsManagerThreeJS(currentGraphicsArgs);
+      }
+    } catch (error) {
+      console.error('Failed to create graphics manager:', error);
+
+      const errorDisplay = document.getElementById('error-display');
+      if (errorDisplay) {
+        errorDisplay.textContent = `Graphics initialization failed: ${error.message}`;
+        errorDisplay.style.color = '#ff6b6b'; // Red error color
+      }
+      return; // Exit early on failure
     }
+
+    // Expose graphics manager globally for video recorder initialization
+    window.graphicsManager = graphicsManager;
+
     uiCanvasChanged = false;
   }
 
   if (uiCanvasChanged) {
     uiCanvasChanged = false;
-    graphicsManager.reset();
+    try {
+      graphicsManager.reset();
+    } catch (resetError) {
+      console.error('Graphics manager reset failed:', resetError);
+      // Try to recreate the graphics manager
+      graphicsManager = null;
+      updateCanvas(frameData); // Recursive call to recreate
+      return;
+    }
   }
 
-  graphicsManager.updateCanvas(frameData);
+  try {
+    graphicsManager.updateCanvas(frameData);
+  } catch (updateError) {
+    console.error('Graphics manager update failed:', updateError);
+
+    // Show error to user
+    const errorDisplay = document.getElementById('error-display');
+    if (errorDisplay) {
+      errorDisplay.textContent = 'Rendering error occurred';
+      errorDisplay.style.color = '#ff6b6b';
+    }
+  }
 }
 
 /**
@@ -409,13 +523,35 @@ async function FastLED_SetupAndLoop(moduleInstance, frame_rate) {
 
     FASTLED_DEBUG_LOG('INDEX_JS', 'Globals exposed, calling controller.setup()...');
 
-    // Setup FastLED synchronously
-    fastLEDController.setup();
+    // Setup FastLED with proper error handling
+    console.log('🔧 About to call fastLEDController.setup()');
+    try {
+      fastLEDController.setup();
+      console.log('🔧 fastLEDController.setup() completed successfully');
+    } catch (error) {
+      console.error('🔧 setup() threw error:', error);
+      console.error('🔧 Error stack:', error.stack);
+      throw error; // Re-throw to prevent silent failure
+    }
 
-    FASTLED_DEBUG_LOG('INDEX_JS', 'Controller setup completed, starting animation loop...');
+    FASTLED_DEBUG_LOG('INDEX_JS', 'Controller setup completed, initializing worker mode...');
 
-    // Start the async animation loop
-    fastLEDController.start();
+    // Initialize Web Worker mode for background thread rendering (always enabled)
+    const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('myCanvas'));
+    if (!canvas) {
+      throw new Error('Canvas element not found');
+    }
+
+    FASTLED_DEBUG_LOG('INDEX_JS', 'Initializing Web Worker mode with OffscreenCanvas...');
+    await fastLEDController.initializeWorkerMode(canvas, {
+      maxRetries: 3
+    });
+    FASTLED_DEBUG_LOG('INDEX_JS', 'Web Worker mode initialized successfully');
+
+    // Start the async animation loop in worker mode
+    await fastLEDController.startWithWorkerSupport();
+    FASTLED_DEBUG_LOG('INDEX_JS', 'Animation loop started with Web Worker support');
+    console.log('FastLED running in Web Worker mode (background thread)');
 
     FASTLED_DEBUG_LOG('INDEX_JS', 'Animation loop started, setting up UI controls...');
 
@@ -433,10 +569,10 @@ async function FastLED_SetupAndLoop(moduleInstance, frame_rate) {
     });
 
     if (startBtn) {
-      startBtn.onclick = () => {
+      startBtn.onclick = async () => {
         FASTLED_DEBUG_LOG('INDEX_JS', 'Start button clicked');
         if (fastLEDController.setupCompleted) {
-          fastLEDController.start();
+          await fastLEDController.startWithWorkerSupport();
         } else {
           console.warn('FastLED setup not completed yet');
           FASTLED_DEBUG_LOG('INDEX_JS', 'Start button clicked but setup not completed');
@@ -445,16 +581,16 @@ async function FastLED_SetupAndLoop(moduleInstance, frame_rate) {
     }
 
     if (stopBtn) {
-      stopBtn.onclick = () => {
+      stopBtn.onclick = async () => {
         FASTLED_DEBUG_LOG('INDEX_JS', 'Stop button clicked');
-        fastLEDController.stop();
+        await fastLEDController.stopWithWorkerSupport();
       };
     }
 
     if (toggleBtn) {
-      toggleBtn.onclick = () => {
+      toggleBtn.onclick = async () => {
         FASTLED_DEBUG_LOG('INDEX_JS', 'Toggle button clicked');
-        const isRunning = toggleFastLED();
+        const isRunning = await toggleFastLED();
         toggleBtn.textContent = isRunning ? 'Pause' : 'Resume';
       };
     }
@@ -762,7 +898,7 @@ async function localLoadFastLed(options) {
     // Initialize JSON Inspector
     new JsonInspector();
 
-    // Expose UI manager globally for debug functions and C++ module
+    // Expose UI manager globally for debug functions (main thread only)
     window.uiManager = uiManager;
     window.uiManagerInstance = uiManager;
 
@@ -778,6 +914,28 @@ async function localLoadFastLed(options) {
         uiManager.cleanupOrphanedElements();
       }
     }, 5000); // Run cleanup every 5 seconds
+
+    // Set up periodic UI polling for worker mode
+    // In worker mode, there's no main thread loop, so we poll for UI changes
+    setInterval(() => {
+      if (window.fastLEDWorkerManager && window.fastLEDWorkerManager.isWorkerActive) {
+        // Worker mode: poll UI changes and send to worker
+        if (window.uiManager && typeof window.uiManager.processUiChanges === 'function') {
+          const changes = window.uiManager.processUiChanges();
+          if (changes && Object.keys(changes).length > 0) {
+            //console.log('🎮 [UI_POLL] Detected UI changes in worker mode:', changes);
+            const message = {
+              type: 'ui_changes',
+              payload: {
+                changes: changes
+              }
+            };
+            window.fastLEDWorkerManager.worker.postMessage(message);
+            //console.log('🎮 [UI_POLL] UI changes sent to worker');
+          }
+        }
+      }
+    }, 1000 / 60); // Poll at 60Hz to match typical frame rate
 
     const { threeJs } = options;
     console.log('ThreeJS:', threeJs);
@@ -830,36 +988,38 @@ async function startFastLED() {
     console.error('FastLED controller not initialized');
     return;
   }
-  await fastLEDController.start();
+  await fastLEDController.startWithWorkerSupport();
 }
 
 /**
  * Stops the FastLED animation loop (for external control)
- * @returns {boolean} True if stopped successfully, false otherwise
+ * @returns {Promise<boolean>} Promise that resolves to true if stopped successfully, false otherwise
  */
-function stopFastLED() {
+async function stopFastLED() {
   if (!fastLEDController) {
     console.error('FastLED controller not initialized');
     return false;
   }
-  fastLEDController.stop();
+  await fastLEDController.stopWithWorkerSupport();
   return true;
 }
 
 /**
  * Toggles the FastLED animation loop
- * @returns {Promise<void>} Promise that resolves when toggle is complete
+ * @returns {Promise<boolean>} Promise that resolves to running state (true if now running)
  */
 async function toggleFastLED() {
   if (!fastLEDController) {
     console.error('FastLED controller not initialized');
-    return;
+    return false;
   }
 
   if (fastLEDController.running) {
-    fastLEDController.stop();
+    await fastLEDController.stopWithWorkerSupport();
+    return false;
   } else {
-    await fastLEDController.start();
+    await fastLEDController.startWithWorkerSupport();
+    return true;
   }
 }
 
@@ -910,7 +1070,7 @@ window.startFastLED = startFastLED;
 window.stopFastLED = stopFastLED;
 window.toggleFastLED = toggleFastLED;
 
-// Expose rendering function globally
+// Expose rendering function globally (main thread only)
 window.updateCanvas = updateCanvas;
 
 // Set up global error handlers
@@ -931,20 +1091,47 @@ function initializeVideoRecorder() {
     return;
   }
 
-  const canvas = document.getElementById('myCanvas');
   const recordButton = document.getElementById('record-btn');
 
-  if (!canvas || !recordButton) {
-    console.warn('Canvas or record button not found, video recording disabled');
+  if (!recordButton) {
+    console.warn('Record button not found, video recording disabled');
+    return;
+  }
+
+  // Check if worker mode is active - if so, use worker-based recording
+  if (window.fastLEDWorkerManager && window.fastLEDWorkerManager.isWorkerActive) {
+    console.log('Worker mode active - using worker-based video recording');
+    initializeWorkerVideoRecorder(recordButton);
+    return;
+  }
+
+  // For non-worker mode, wait for canvas to be ready
+  const canvas = document.getElementById('myCanvas');
+  if (!canvas) {
+    console.warn('Canvas not found, video recording disabled');
     return;
   }
 
   // Wait for canvas to be properly initialized with graphics manager
   let retryCount = 0;
   const maxRetries = 30; // Max 6 seconds of retrying
+  let initialized = false; // Track if initialization succeeded
 
   const tryInitialize = () => {
+    // Stop retrying if already initialized
+    if (initialized) {
+      return;
+    }
+
     try {
+      // Check if worker mode became active during retry period
+      if (window.fastLEDWorkerManager && window.fastLEDWorkerManager.isWorkerActive) {
+        console.log('Worker mode became active - switching to worker-based recording');
+        initializeWorkerVideoRecorder(recordButton);
+        initialized = true; // Mark as successfully initialized
+        return;
+      }
+
       // Check if graphics manager has been initialized (this is the real dependency)
       if (typeof window.graphicsManager === 'undefined' && typeof graphicsManager === 'undefined') {
         throw new Error('Graphics manager not initialized yet');
@@ -955,12 +1142,11 @@ function initializeVideoRecorder() {
         throw new Error('Canvas not ready yet');
       }
 
-      console.log('Video recorder initializing - canvas and graphics ready');
       actuallyInitializeVideoRecorder(canvas, recordButton);
+      initialized = true; // Mark as successfully initialized
     } catch (error) {
       retryCount++;
       if (retryCount < maxRetries) {
-        console.log(`Canvas/Graphics not ready yet (attempt ${retryCount}/${maxRetries}), retrying in 200ms...`);
         setTimeout(tryInitialize, 200);
       } else {
         console.warn('Failed to initialize video recorder - canvas/graphics not ready after maximum retries');
@@ -974,19 +1160,225 @@ function initializeVideoRecorder() {
 }
 
 /**
+ * Creates a hidden mirror canvas to receive frames from worker for main-thread recording
+ * @param {number} width - Canvas width
+ * @param {number} height - Canvas height
+ * @returns {HTMLCanvasElement} Mirror canvas
+ */
+function createMirrorCanvas(width, height) {
+  console.log('Creating mirror canvas:', width, 'x', height);
+
+  // Create canvas element
+  const canvas = document.createElement('canvas');
+  canvas.id = 'mirror-canvas';
+  canvas.width = width;
+  canvas.height = height;
+
+  // Hide canvas (not displayed, only used for recording)
+  canvas.style.position = 'absolute';
+  canvas.style.left = '-9999px';
+  canvas.style.top = '-9999px';
+  canvas.style.pointerEvents = 'none';
+
+  // Add to DOM (required for MediaRecorder)
+  document.body.appendChild(canvas);
+
+  console.log('Mirror canvas created and added to DOM');
+
+  return canvas;
+}
+
+/**
+ * Sets up message listener for frame updates from worker
+ */
+function setupWorkerFrameListener() {
+  if (!window.fastLEDWorkerManager || !window.fastLEDWorkerManager.worker) {
+    console.error('Worker not available for frame listener setup');
+    return;
+  }
+
+  // Add custom handler for frame_update messages
+  const originalHandler = window.fastLEDWorkerManager.worker.onmessage;
+
+  window.fastLEDWorkerManager.worker.onmessage = (event) => {
+    const { type, payload } = event.data;
+
+    if (type === 'frame_update' && payload && payload.bitmap) {
+      handleWorkerFrameUpdate(payload);
+      return; // Don't pass to original handler
+    }
+
+    // Pass other messages to original handler
+    if (originalHandler) {
+      originalHandler(event);
+    }
+  };
+
+  console.log('Worker frame listener setup complete');
+}
+
+/**
+ * Handles frame update from worker - draws to mirror canvas
+ * @param {Object} payload - Frame data with ImageBitmap
+ */
+function handleWorkerFrameUpdate(payload) {
+  const { bitmap, width, height } = payload;
+
+  try {
+    // Create mirror canvas if needed or resize if dimensions changed
+    if (!mirrorCanvas || mirrorCanvas.width !== width || mirrorCanvas.height !== height) {
+      console.log('Creating/resizing mirror canvas:', width, 'x', height);
+
+      if (mirrorCanvas) {
+        document.body.removeChild(mirrorCanvas);
+      }
+
+      mirrorCanvas = createMirrorCanvas(width, height);
+      mirrorCanvasContext = mirrorCanvas.getContext('2d', { willReadFrequently: false });
+    }
+
+    // Draw bitmap to mirror canvas (hardware-accelerated)
+    if (mirrorCanvasContext) {
+      mirrorCanvasContext.drawImage(bitmap, 0, 0);
+    }
+
+    // Bitmap is transferred, no need to close it
+  } catch (error) {
+    console.error('Error drawing frame to mirror canvas:', error);
+  }
+}
+
+/**
+ * Initializes main-thread video recording with worker frame transfer
+ * Worker captures frames as ImageBitmap and sends to main thread
+ * Main thread draws to mirror canvas and uses MediaRecorder (where it's available)
+ * @param {HTMLElement} recordButton - The record button element
+ */
+function initializeWorkerVideoRecorder(recordButton) {
+  console.log('Initializing main-thread video recorder with worker frame transfer');
+
+  // Check MediaRecorder support
+  if (typeof MediaRecorder === 'undefined') {
+    console.warn('MediaRecorder API not supported, video recording disabled');
+    recordButton.style.display = 'none';
+    return;
+  }
+
+  // Make record button visible
+  recordButton.classList.add('visible');
+  console.log('Record button made visible');
+
+  // Set up worker frame listener
+  setupWorkerFrameListener();
+
+  let isRecording = false;
+
+  // Handle record button click
+  recordButton.addEventListener('click', async () => {
+    if (!window.fastLEDWorkerManager || !window.fastLEDWorkerManager.isWorkerActive) {
+      console.error('Worker not active, cannot record');
+      return;
+    }
+
+    try {
+      if (!isRecording) {
+        // === START RECORDING ===
+
+        // Send start message to worker to begin frame capture
+        const response = await window.fastLEDWorkerManager.sendMessageWithResponse({
+          type: 'start_recording',
+          payload: {
+            fps: 60,
+            settings: window.getVideoSettings ? window.getVideoSettings() : {}
+          }
+        });
+
+        if (!response.success) {
+          throw new Error('Worker failed to start frame capture');
+        }
+
+        console.log('Worker frame capture started:', response);
+
+        // Wait for mirror canvas to be created (give frames time to arrive)
+        await new Promise((resolve) => {
+          setTimeout(resolve, 500);
+        });
+
+        if (!mirrorCanvas) {
+          throw new Error('Mirror canvas not created - no frames received from worker');
+        }
+
+        // Create VideoRecorder on main thread with mirror canvas
+        const defaultSettings = window.getVideoSettings ? window.getVideoSettings() : {};
+
+        mainThreadVideoRecorder = new VideoRecorder({
+          canvas: mirrorCanvas,
+          audioContext: null, // No audio for now
+          fps: response.fps || 60,
+          settings: {
+            ...defaultSettings,
+            fps: undefined // Remove fps from settings to use constructor parameter
+          },
+          onStateChange: (recording) => {
+            isRecording = recording;
+
+            if (recording) {
+              recordButton.classList.add('recording');
+              const recordIcon = /** @type {HTMLElement|null} */ (recordButton.querySelector('.record-icon'));
+              const stopIcon = /** @type {HTMLElement|null} */ (recordButton.querySelector('.stop-icon'));
+              if (recordIcon) recordIcon.style.display = 'none';
+              if (stopIcon) stopIcon.style.display = 'block';
+            } else {
+              recordButton.classList.remove('recording');
+              const recordIcon = /** @type {HTMLElement|null} */ (recordButton.querySelector('.record-icon'));
+              const stopIcon = /** @type {HTMLElement|null} */ (recordButton.querySelector('.stop-icon'));
+              if (recordIcon) recordIcon.style.display = 'block';
+              if (stopIcon) stopIcon.style.display = 'none';
+            }
+
+            // Update tooltip
+            if (window.updateRecordButtonTooltip) {
+              window.updateRecordButtonTooltip();
+            }
+          }
+        });
+
+        // Start recording on main thread
+        mainThreadVideoRecorder.startRecording();
+
+        console.log('Main-thread recording started with codec:', mainThreadVideoRecorder.selectedMimeType);
+      } else {
+        // === STOP RECORDING ===
+
+        // Stop recording on main thread
+        if (mainThreadVideoRecorder) {
+          mainThreadVideoRecorder.stopRecording();
+        }
+
+        // Tell worker to stop frame capture
+        await window.fastLEDWorkerManager.sendMessageWithResponse({
+          type: 'stop_recording',
+          payload: {}
+        });
+
+        console.log('Recording stopped');
+      }
+    } catch (error) {
+      console.error('Recording error:', error);
+      isRecording = false;
+      recordButton.classList.remove('recording');
+    }
+  });
+
+  console.log('Main-thread video recorder initialized with worker frame transfer');
+}
+
+/**
  * Actually initializes the video recorder once canvas is ready
  */
 function actuallyInitializeVideoRecorder(canvas, recordButton) {
-  // Try to get audio context if available
-  let audioContext = null;
-  if (typeof AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      audioContext = new AudioContextClass();
-    } catch (error) {
-      console.warn('Could not create AudioContext for video recording:', error);
-    }
-  }
+  // Note: Audio context removed for async video recorder
+  // Audio recording will be handled separately if needed
 
   // Check if MediaRecorder is supported
   if (typeof MediaRecorder === 'undefined') {
@@ -995,8 +1387,8 @@ function actuallyInitializeVideoRecorder(canvas, recordButton) {
     return;
   }
 
-  // Load video settings from localStorage or use defaults
-  const savedSettings = window.getVideoSettings ? window.getVideoSettings() : null;
+  // Always use default settings (no localStorage persistence)
+  const defaultSettings = window.getVideoSettings ? window.getVideoSettings() : null;
 
   try {
     // Validate canvas is ready (without creating a context that would conflict with graphics manager)
@@ -1007,17 +1399,20 @@ function actuallyInitializeVideoRecorder(canvas, recordButton) {
     // Don't create a context here - the graphics manager handles context creation
     // Just validate the canvas element is ready for use
 
-    // Create video recorder instance
+    // Create video recorder instance with optimized settings
     videoRecorder = new VideoRecorder({
       canvas,
-      audioContext,
-      fps: savedSettings?.fps || 30,
-      settings: savedSettings,
+      audioContext: null, // Disable audio for better performance
+      fps: defaultSettings?.fps || 60,
+      settings: {
+        // Use default settings but exclude fps to avoid conflicts
+        ...defaultSettings,
+        fps: undefined, // Remove fps from settings to ensure constructor fps parameter takes precedence
+      },
       onStateChange: (isRecording) => {
-      // Update button visual state
+        // Update button visual state
         if (isRecording) {
           recordButton.classList.add('recording');
-          recordButton.title = 'Stop Recording';
           // Update icon
           const recordIcon = recordButton.querySelector('.record-icon');
           const stopIcon = recordButton.querySelector('.stop-icon');
@@ -1025,15 +1420,109 @@ function actuallyInitializeVideoRecorder(canvas, recordButton) {
           if (stopIcon) stopIcon.style.display = 'block';
         } else {
           recordButton.classList.remove('recording');
-          recordButton.title = 'Start Recording';
           // Update icon
           const recordIcon = recordButton.querySelector('.record-icon');
           const stopIcon = recordButton.querySelector('.stop-icon');
           if (recordIcon) recordIcon.style.display = 'block';
           if (stopIcon) stopIcon.style.display = 'none';
         }
+
+        // Update tooltip with current encoding format
+        // Use setTimeout to ensure the state change is complete
+        setTimeout(() => {
+          if (window.updateRecordButtonTooltip) {
+            window.updateRecordButtonTooltip();
+          }
+        }, 0);
       },
     });
+
+    // Expose video recorder globally for settings updates
+    window.videoRecorder = videoRecorder;
+
+    // Create custom tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.id = 'record-tooltip';
+    tooltip.style.cssText = `
+      position: absolute;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      white-space: nowrap;
+      z-index: 10000;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    `;
+    document.body.appendChild(tooltip);
+
+    // Function to update record button tooltip with current encoding format
+    function updateRecordButtonTooltip() {
+      if (videoRecorder && recordButton) {
+        const codecName = videoRecorder.getCodecDisplayName();
+        const isRecording = videoRecorder.getIsRecording();
+
+        let tooltipText;
+        if (isRecording) {
+          tooltipText = `Stop Recording (${codecName})`;
+        } else {
+          tooltipText = `Record in ${codecName}`;
+        }
+
+        // Store tooltip text for mouse events
+        recordButton.setAttribute('data-tooltip', tooltipText);
+        // Remove browser default tooltip
+        recordButton.removeAttribute('title');
+      }
+    }
+
+    // Add mouse events for immediate tooltip display
+    recordButton.addEventListener('mouseenter', (e) => {
+      const tooltipText = e.target.getAttribute('data-tooltip');
+      if (tooltipText) {
+        tooltip.textContent = tooltipText;
+        tooltip.style.display = 'block';
+
+        // Position tooltip above the button
+        const rect = recordButton.getBoundingClientRect();
+        tooltip.style.left = `${rect.left + rect.width / 2}px`;
+        tooltip.style.top = `${rect.top - tooltip.offsetHeight - 8}px`;
+
+        // Adjust horizontal position if tooltip would go off-screen
+        const tooltipRect = tooltip.getBoundingClientRect();
+        if (tooltipRect.right > window.innerWidth - 10) {
+          tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+        }
+        if (tooltipRect.left < 10) {
+          tooltip.style.left = '10px';
+        }
+      }
+    });
+
+    recordButton.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    recordButton.addEventListener('mousemove', () => {
+      // Update position on mouse move for better tracking
+      const rect = recordButton.getBoundingClientRect();
+      tooltip.style.left = `${rect.left + rect.width / 2}px`;
+      tooltip.style.top = `${rect.top - tooltip.offsetHeight - 8}px`;
+
+      // Center tooltip horizontally relative to button
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const centerOffset = tooltipRect.width / 2;
+      tooltip.style.left = `${rect.left + rect.width / 2 - centerOffset}px`;
+    });
+
+    // Update tooltip initially
+    updateRecordButtonTooltip();
+
+    // Expose globally so it can be called when settings change
+    window.updateRecordButtonTooltip = updateRecordButtonTooltip;
 
     // Add click handler to record button
     recordButton.addEventListener('click', (e) => {
@@ -1053,7 +1542,7 @@ function actuallyInitializeVideoRecorder(canvas, recordButton) {
       }
     });
 
-    console.log('Video recorder initialized');
+    console.log('Optimized video recorder initialized (performance settings applied)');
   } catch (error) {
     console.error('Failed to initialize video recorder:', error);
     recordButton.style.display = 'none';
@@ -1061,10 +1550,29 @@ function actuallyInitializeVideoRecorder(canvas, recordButton) {
 }
 
 // Initialize video recorder after FastLED is ready
-// Don't initialize immediately - wait for FastLED to set up graphics
+// Prefer event-based initialization for faster response, with timeout fallback
+let videoRecorderInitialized = false;
+
+// Listen for worker:initialized event for immediate initialization
+if (typeof window !== 'undefined' && window.fastLEDEvents) {
+  window.fastLEDEvents.on('worker:initialized', () => {
+    if (!videoRecorderInitialized) {
+      console.log('Worker initialized event received, initializing video recorder immediately');
+      videoRecorderInitialized = true;
+      initializeVideoRecorder();
+    }
+  });
+}
+
+// Fallback timeout in case worker mode fails or events don't fire
+// Reduced from 2000ms to 500ms for better responsiveness
 setTimeout(() => {
-  initializeVideoRecorder();
-}, 2000); // Give FastLED time to initialize
+  if (!videoRecorderInitialized) {
+    console.log('Initializing video recorder via timeout fallback (worker event not received)');
+    videoRecorderInitialized = true;
+    initializeVideoRecorder();
+  }
+}, 500); // Reduced timeout - worker initializes at ~200ms, 500ms gives buffer
 
 // Expose video recorder functions globally for debugging
 window.getVideoRecorder = () => videoRecorder;

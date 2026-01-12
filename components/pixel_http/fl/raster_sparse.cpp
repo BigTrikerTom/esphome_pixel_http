@@ -1,4 +1,4 @@
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
 #include "fl/draw_visitor.h"
 #include "fl/leds.h"
@@ -66,8 +66,8 @@ void XYRasterU8Sparse::rasterize_internal(const Tile2x2_u8 &tile,
 
 } // namespace fl
 
-// XYRasterSparse_CRGB implementation
-void fl::XYRasterSparse_CRGB::draw(const XYMap &xymap, CRGB *out) {
+// XYRasterSparse_RGB8 implementation
+void fl::XYRasterSparse_RGB8::draw(const XYMap &xymap, CRGB *out) {
     for (const auto &it : mSparseGrid) {
         auto pt = it.first;
         if (!xymap.has(pt.x, pt.y)) {
@@ -82,6 +82,6 @@ void fl::XYRasterSparse_CRGB::draw(const XYMap &xymap, CRGB *out) {
     }
 }
 
-void fl::XYRasterSparse_CRGB::draw(Leds *leds) {
+void fl::XYRasterSparse_RGB8::draw(Leds *leds) {
     draw(leds->xymap(), leds->rgb());
 }

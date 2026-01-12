@@ -1,6 +1,8 @@
 // ArduinoJson - https://arduinojson.org
 // Copyright © 2014-2024, Benoit BLANCHON
 // MIT License
+//
+// okay std namespace (third-party library)
 
 #pragma once
 
@@ -285,9 +287,13 @@ ARDUINOJSON_BEGIN_PRIVATE_NAMESPACE
 template <typename T1, typename T2>
 class InvalidConversion;  // Error here? See https://arduinojson.org/v7/invalid-conversion/
 ARDUINOJSON_END_PRIVATE_NAMESPACE
-#include <stddef.h>
-#include "fl/stdint.h"
-#include <stdlib.h>
+#include "fl/stl/cstddef.h"
+#include "fl/stl/cstring.h"
+#include "fl/stl/stdint.h"
+#include "fl/stl/cstdlib.h"
+#include "fl/stddef.h"
+#include "fl/stl/malloc.h"
+#include "fl/str.h"
 ARDUINOJSON_BEGIN_PUBLIC_NAMESPACE
 class Allocator {
  public:
@@ -301,13 +307,13 @@ namespace detail {
 class DefaultAllocator : public Allocator {
  public:
   void* allocate(size_t size) override {
-    return malloc(size);
+    return fl::malloc(size);
   }
   void deallocate(void* ptr) override {
-    free(ptr);
+    fl::free(ptr);
   }
   void* reallocate(void* ptr, size_t new_size) override {
-    return realloc(ptr, new_size);
+    return fl::realloc(ptr, new_size);
   }
   static Allocator* instance() {
     static DefaultAllocator allocator;
@@ -320,8 +326,8 @@ class DefaultAllocator : public Allocator {
 }  // namespace detail
 ARDUINOJSON_END_PUBLIC_NAMESPACE
 #if ARDUINOJSON_DEBUG
-#include <assert.h>  // ok include
-#  define ARDUINOJSON_ASSERT(X) assert(X)
+#include "fl/warn.h"  // Use FastLED's warning system instead of stdlib assert
+#  define ARDUINOJSON_ASSERT(X) FL_WARN_IF(!(X), "ArduinoJSON assertion failed")
 #else
 #  define ARDUINOJSON_ASSERT(X) ((void)0)
 #endif
@@ -659,7 +665,7 @@ void swap_(T& a, T& b) {
   b = move(tmp);
 }
 ARDUINOJSON_END_PRIVATE_NAMESPACE
-#include <string.h>
+#include "fl/stl/string.h"
 ARDUINOJSON_BEGIN_PRIVATE_NAMESPACE
 using PoolCount = SlotId;
 template <typename T>
@@ -700,8 +706,8 @@ class MemoryPoolList {
   MemoryPoolList& operator=(MemoryPoolList&& src) {
     ARDUINOJSON_ASSERT(count_ == 0);
     if (src.pools_ == src.preallocatedPools_) {
-      memcpy(preallocatedPools_, src.preallocatedPools_,
-             sizeof(preallocatedPools_));
+      fl::memcpy(preallocatedPools_, src.preallocatedPools_,
+                 sizeof(preallocatedPools_));
       pools_ = preallocatedPools_;
     } else {
       pools_ = src.pools_;
@@ -805,7 +811,7 @@ class MemoryPoolList {
       newPools = allocator->allocate(newCapacity * sizeof(Pool));
       if (!newPools)
         return false;
-      ::memcpy(newPools, preallocatedPools_, sizeof(preallocatedPools_));
+      fl::memcpy(newPools, preallocatedPools_, sizeof(preallocatedPools_));
     } else {
       newPools = allocator->reallocate(pools_, newCapacity * sizeof(Pool));
       if (!newPools)
@@ -865,7 +871,7 @@ struct StringNode {
   char data[1];
   static constexpr size_t maxLength = numeric_limits<length_type>::highest();
   static constexpr size_t sizeForLength(size_t n) {
-    return n + 1 + offsetof(StringNode, data);
+    return n + 1 + FL_OFFSETOF(StringNode, data);
   }
   static StringNode* create(size_t length, Allocator* allocator) {
     if (length > maxLength)
@@ -961,7 +967,7 @@ class ZeroTerminatedRamString {
     return !str_;
   }
   FORCE_INLINE size_t size() const {
-    return str_ ? ::strlen(str_) : 0;
+    return str_ ? fl::strlen(str_) : 0;
   }
   char operator[](size_t i) const {
     ARDUINOJSON_ASSERT(str_ != 0);
@@ -975,7 +981,7 @@ class ZeroTerminatedRamString {
                            ZeroTerminatedRamString b) {
     ARDUINOJSON_ASSERT(!a.isNull());
     ARDUINOJSON_ASSERT(!b.isNull());
-    return ::strcmp(a.str_, b.str_);
+    return fl::strcmp(a.str_, b.str_);
   }
   friend bool stringEquals(ZeroTerminatedRamString a,
                            ZeroTerminatedRamString b) {
@@ -1057,7 +1063,7 @@ class JsonString {
   enum Ownership { Copied, Linked };
   JsonString() : data_(0), size_(0), ownership_(Linked) {}
   JsonString(const char* data, Ownership ownership = Linked)
-      : data_(data), size_(data ? ::strlen(data) : 0), ownership_(ownership) {}
+      : data_(data), size_(data ? fl::strlen(data) : 0), ownership_(ownership) {}
   JsonString(const char* data, size_t size, Ownership ownership = Linked)
       : data_(data), size_(size), ownership_(ownership) {}
   const char* c_str() const {
@@ -1084,7 +1090,7 @@ class JsonString {
       return false;
     if (!rhs.data_)
       return false;
-    return memcmp(lhs.data_, rhs.data_, lhs.size_) == 0;
+    return fl::memcmp(lhs.data_, rhs.data_, lhs.size_) == 0;
   }
   friend bool operator!=(JsonString lhs, JsonString rhs) {
     return !(lhs == rhs);
@@ -4369,7 +4375,7 @@ struct RawComparer : ComparerBase {
   explicit RawComparer(RawString rhs) : rhs_(rhs) {}
   CompareResult visit(RawString lhs) {
     size_t size = rhs_.size() < lhs.size() ? rhs_.size() : lhs.size();
-    int n = memcmp(lhs.data(), rhs_.data(), size);
+    int n = fl::memcmp(lhs.data(), rhs_.data(), size);
     if (n < 0)
       return COMPARE_RESULT_LESS;
     else if (n > 0)
@@ -4561,7 +4567,7 @@ inline size_t copyArray(JsonVariantConst src, char (&dst)[N]) {
   size_t len = N - 1;
   if (len > s.size())
     len = s.size();
-  memcpy(dst, s.c_str(), len);
+  fl::memcpy(dst, s.c_str(), len);
   dst[len] = 0;
   return 1;
 }
@@ -5005,7 +5011,7 @@ class TextFormatter {
     writeRaw(begin, end);
   }
   void writeRaw(const char* s) {
-    writer_.write(reinterpret_cast<const uint8_t*>(s), strlen(s));
+    writer_.write(reinterpret_cast<const uint8_t*>(s), fl::strlen(s));
   }
   void writeRaw(const char* s, size_t n) {
     writer_.write(reinterpret_cast<const uint8_t*>(s), n);
@@ -5385,10 +5391,10 @@ class StringBuilder {
 };
 ARDUINOJSON_END_PRIVATE_NAMESPACE
 #if ARDUINOJSON_ENABLE_STD_STRING
-#include <string>
+#include <string>  // ok include - ArduinoJson library STL interface
 #endif
 #if ARDUINOJSON_ENABLE_STRING_VIEW
-#include <string_view>
+#include <string_view>  // ok include - ArduinoJson library STL interface
 #endif
 ARDUINOJSON_BEGIN_PUBLIC_NAMESPACE
 template <typename T, typename Enable>
@@ -7346,7 +7352,7 @@ struct Converter<MsgPackBinary> : private detail::VariantAttorney {
           default:
             ARDUINOJSON_ASSERT(false);
         }
-        memcpy(ptr + headerSize, src.data(), src.size());
+        fl::memcpy(ptr + headerSize, src.data(), src.size());
         data->setRawString(str);
         return;
       }
@@ -7711,7 +7717,7 @@ class MsgPackDeserializer {
     char* p = stringBuffer_.reserve(totalSize);
     if (!p)
       return DeserializationError::NoMemory;
-    memcpy(p, header, headerSize);
+    fl::memcpy(p, header, headerSize);
     auto err = readBytes(p + headerSize, n);
     if (err)
       return err;
@@ -7893,7 +7899,7 @@ struct Converter<MsgPackExtension> : private detail::VariantAttorney {
         for (uint8_t i = 0; i < sizeBytes; i++)
           *ptr++ = uint8_t(src.size() >> (sizeBytes - i - 1) * 8 & 0xff);
         *ptr++ = uint8_t(src.type());
-        memcpy(ptr, src.data(), src.size());
+        fl::memcpy(ptr, src.data(), src.size());
         data->setRawString(str);
         return;
       }

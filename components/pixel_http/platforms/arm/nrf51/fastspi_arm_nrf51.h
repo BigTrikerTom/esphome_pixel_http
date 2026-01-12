@@ -1,3 +1,4 @@
+// ok no namespace fl
 #ifndef __INC_FASTSPI_NRF_H
 #define __INC_FASTSPI_NRF_H
 
@@ -61,6 +62,11 @@ public:
     // release the CS select
     void release() { shouldWait(); restoreSPIData(); }
 
+    void endTransaction() {
+        waitFully();
+        release();
+    }
+
     static bool shouldWait(bool wait = false) __attribute__((always_inline)) __attribute__((always_inline)) {
         // static bool sWait=false;
         // bool oldWait = sWait;
@@ -123,7 +129,7 @@ public:
         NRF_SPI0->ENABLE = 1;
     }
 
-    template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+    template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
         select();
         int len = pixels.mLen;
         while(pixels.has(1)) {
@@ -141,6 +147,11 @@ public:
         waitFully();
         release();
     }
+
+    /// Finalize transmission (no-op for NRF51 SPI)
+    /// This method exists for compatibility with other SPI implementations
+    /// that may need to flush buffers or perform post-transmission operations
+    static void finalizeTransmission() { }
 };
 
 #endif

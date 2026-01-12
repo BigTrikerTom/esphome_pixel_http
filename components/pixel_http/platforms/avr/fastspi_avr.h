@@ -1,8 +1,10 @@
 #ifndef __INC_FASTSPI_AVR_H
 #define __INC_FASTSPI_AVR_H
 
-FASTLED_NAMESPACE_BEGIN
+#include "fastspi_types.h"
+#include "fl/delay.h"
 
+namespace fl {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Hardware SPI support using USART registers and friends
@@ -25,7 +27,7 @@ class AVRUSART1SPIOutput {
 	Selectable *m_pSelect;
 
 public:
-	AVRUSART1SPIOutput() { m_pSelect = NULL; }
+	AVRUSART1SPIOutput() { m_pSelect = nullptr; }
 	AVRUSART1SPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 	void setSelect(Selectable *pSelect) { m_pSelect = pSelect; }
 
@@ -95,7 +97,7 @@ public:
 	void disable_pins() { }
 
 	void select() {
-		if(m_pSelect != NULL) {
+		if(m_pSelect != nullptr) {
 			m_pSelect->select();
 		}
 		enable_pins();
@@ -103,10 +105,15 @@ public:
 	}
 
 	void release() {
-		if(m_pSelect != NULL) {
+		if(m_pSelect != nullptr) {
 			m_pSelect->release();
 		}
 		disable_pins();
+	}
+
+	void endTransaction() {
+		waitFully();
+		release();
 	}
 
 	static void writeBytesValueRaw(uint8_t value, int len) {
@@ -138,9 +145,14 @@ public:
 
 	void writeBytes(FASTLED_REGISTER uint8_t *data, int len) { writeBytes<DATA_NOP>(data, len); }
 
+	/// Finalize transmission (no-op for AVR USART1 SPI)
+	/// This method exists for compatibility with other SPI implementations
+	/// that may need to flush buffers or perform post-transmission operations
+	static void finalizeTransmission() { }
+
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		//setSPIRate();
 		int len = pixels.mLen;
 
@@ -172,7 +184,7 @@ class AVRUSART0SPIOutput {
 	Selectable *m_pSelect;
 
 public:
-	AVRUSART0SPIOutput() { m_pSelect = NULL; }
+	AVRUSART0SPIOutput() { m_pSelect = nullptr; }
 	AVRUSART0SPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 	void setSelect(Selectable *pSelect) { m_pSelect = pSelect; }
 
@@ -241,7 +253,7 @@ public:
 	void disable_pins() { }
 
 	void select() {
-		if(m_pSelect != NULL) {
+		if(m_pSelect != nullptr) {
 			m_pSelect->select();
 		}
 		enable_pins();
@@ -249,10 +261,15 @@ public:
 	}
 
 	void release() {
-		if(m_pSelect != NULL) {
+		if(m_pSelect != nullptr) {
 			m_pSelect->release();
 		}
 		disable_pins();
+	}
+
+	void endTransaction() {
+		waitFully();
+		release();
 	}
 
 	static void writeBytesValueRaw(uint8_t value, int len) {
@@ -286,7 +303,7 @@ public:
 
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		//setSPIRate();
 		int len = pixels.mLen;
 
@@ -310,6 +327,11 @@ public:
 		waitFully();
 		release();
 	}
+
+	/// Finalize transmission (no-op for AVR USART0 SPI)
+	/// This method exists for compatibility with other SPI implementations
+	/// that may need to flush buffers or perform post-transmission operations
+	static void finalizeTransmission() { }
 };
 
 #endif
@@ -321,7 +343,7 @@ class AVRHardwareSPIOutput {
 	Selectable *m_pSelect;
 
 public:
-	AVRHardwareSPIOutput() { m_pSelect = NULL; }
+	AVRHardwareSPIOutput() { m_pSelect = nullptr; }
 	AVRHardwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 	void setSelect(Selectable *pSelect) { m_pSelect = pSelect; }
 
@@ -402,7 +424,7 @@ public:
 	void disable_pins() { }
 
 	void select() {
-		if(m_pSelect != NULL) {
+		if(m_pSelect != nullptr) {
 			m_pSelect->select();
 		}
 		enable_pins();
@@ -410,10 +432,15 @@ public:
 	}
 
 	void release() {
-		if(m_pSelect != NULL) {
+		if(m_pSelect != nullptr) {
 			m_pSelect->release();
 		}
 		disable_pins();
+	}
+
+	void endTransaction() {
+		waitFully();
+		release();
 	}
 
 	static void writeBytesValueRaw(uint8_t value, int len) {
@@ -447,7 +474,7 @@ public:
 
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		//setSPIRate();
 		int len = pixels.mLen;
 
@@ -470,6 +497,11 @@ public:
 		D::postBlock(len);
 		release();
 	}
+
+	/// Finalize transmission (no-op for AVR Hardware SPI)
+	/// This method exists for compatibility with other SPI implementations
+	/// that may need to flush buffers or perform post-transmission operations
+	static void finalizeTransmission() { }
 };
 
 #endif
@@ -493,7 +525,7 @@ class AVRHardwareSPIOutput {
 	bool mWait;
 
 public:
-	AVRHardwareSPIOutput() { m_pSelect = NULL; mWait = false;}
+	AVRHardwareSPIOutput() { m_pSelect = nullptr; mWait = false;}
 	AVRHardwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 	void setSelect(Selectable *pSelect) { m_pSelect = pSelect; }
 
@@ -588,14 +620,19 @@ public:
 	}
 
 	void select() {
-		if(m_pSelect != NULL) { m_pSelect->select(); }
+		if(m_pSelect != nullptr) { m_pSelect->select(); }
 		enable_pins();
 		setSPIRate();
 	}
 
 	void release() {
-		if(m_pSelect != NULL) { m_pSelect->release(); }
+		if(m_pSelect != nullptr) { m_pSelect->release(); }
 		disable_pins();
+	}
+
+	void endTransaction() {
+		waitFully();
+		release();
 	}
 
 	static void writeBytesValueRaw(uint8_t value, int len) {
@@ -627,7 +664,7 @@ public:
 
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		//setSPIRate();
 		int len = pixels.mLen;
 
@@ -651,6 +688,11 @@ public:
 		waitFully();
 		release();
 	}
+
+	/// Finalize transmission (no-op for AVR Hardware SPI)
+	/// This method exists for compatibility with other SPI implementations
+	/// that may need to flush buffers or perform post-transmission operations
+	static void finalizeTransmission() { }
 };
 #elif defined(SPSR0)
 
@@ -671,7 +713,7 @@ class AVRHardwareSPIOutput {
 	bool mWait;
 
 public:
-	AVRHardwareSPIOutput() { m_pSelect = NULL; mWait = false;}
+	AVRHardwareSPIOutput() { m_pSelect = nullptr; mWait = false;}
 	AVRHardwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 	void setSelect(Selectable *pSelect) { m_pSelect = pSelect; }
 
@@ -766,14 +808,19 @@ public:
 	}
 
 	void select() {
-		if(m_pSelect != NULL) { m_pSelect->select(); }
+		if(m_pSelect != nullptr) { m_pSelect->select(); }
 		enable_pins();
 		setSPIRate();
 	}
 
 	void release() {
-		if(m_pSelect != NULL) { m_pSelect->release(); }
+		if(m_pSelect != nullptr) { m_pSelect->release(); }
 		disable_pins();
+	}
+
+	void endTransaction() {
+		waitFully();
+		release();
 	}
 
 	static void writeBytesValueRaw(uint8_t value, int len) {
@@ -805,7 +852,7 @@ public:
 
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		//setSPIRate();
 		int len = pixels.mLen;
 
@@ -829,6 +876,11 @@ public:
 		waitFully();
 		release();
 	}
+
+	/// Finalize transmission (no-op for AVR Hardware SPI)
+	/// This method exists for compatibility with other SPI implementations
+	/// that may need to flush buffers or perform post-transmission operations
+	static void finalizeTransmission() { }
 };
 #endif
 
@@ -836,7 +888,7 @@ public:
 // #define FASTLED_FORCE_SOFTWARE_SPI
 #endif
 
-FASTLED_NAMESPACE_END;
+}  // namespace fl
 
 
 #endif

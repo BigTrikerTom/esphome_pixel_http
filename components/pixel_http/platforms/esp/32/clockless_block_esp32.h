@@ -1,19 +1,19 @@
 #ifndef __INC_CLOCKLESS_BLOCK_ESP8266_H
 #define __INC_CLOCKLESS_BLOCK_ESP8266_H
 
-#include "fl/stdint.h"
-#include "fl/namespace.h"
+#include "fl/stl/stdint.h"
 #include "clock_cycles.h"
 #include "esp_intr_alloc.h"
 #include "eorder.h"
 #include "transpose8x1_noinline.h"
 #include "fl/force_inline.h"
+#include "fl/chipsets/timing_traits.h"
 
 #define FASTLED_HAS_BLOCKLESS 1
 
 #define PORT_MASK (((1<<LANES)-1) & 0x0000FFFFL)
-#define MIN(X,Y) (((X)<(Y)) ? (X):(Y))
-#define USED_LANES (MIN(LANES,4))
+#define FL_MIN(X,Y) (((X)<(Y)) ? (X):(Y))
+#define USED_LANES (FL_MIN(LANES,4))
 #define REAL_FIRST_PIN 12
 #define LAST_PIN (12 + USED_LANES - 1)
 
@@ -23,9 +23,7 @@
 #define PORTD_FIRST_PIN 12
 #define PORTA_FIRST_PIN 14
 #define PORTB_FIRST_PIN 16
-
-FASTLED_NAMESPACE_BEGIN
-
+namespace fl {
 #ifdef FASTLED_DEBUG_COUNT_FRAME_RETRIES
 extern uint32_t _frame_cnt;
 extern uint32_t _retry_cnt;
@@ -43,10 +41,24 @@ FASTLED_FORCE_INLINE void interrupt_lock()  {
 	// TODO: imlement interrupt_lock?
 }
 
-template <uint8_t LANES, int FIRST_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 5>
+template <uint8_t LANES, int FIRST_PIN, typename TIMING, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false>
 class InlineBlockClocklessController : public CPixelLEDController<RGB_ORDER, LANES, PORT_MASK> {
     typedef typename FastPin<FIRST_PIN>::port_ptr_t data_ptr_t;
     typedef typename FastPin<FIRST_PIN>::port_t data_t;
+
+    // Convert nanoseconds to CPU cycles (compile-time)
+    // Formula: cycles = (ns * (F_CPU / 1MHz) + 500) / 1000
+    // +500 for rounding to nearest cycle
+    static constexpr uint32_t NS_TO_CYCLES(uint32_t ns) {
+        return (ns * (F_CPU / 1000000UL) + 500) / 1000;
+    }
+
+    enum : uint32_t {
+        T1 = NS_TO_CYCLES(TIMING::T1),  // Convert nanoseconds → CPU cycles
+        T2 = NS_TO_CYCLES(TIMING::T2),
+        T3 = NS_TO_CYCLES(TIMING::T3),
+        WAIT_TIME = TIMING::RESET  // Already in microseconds (no conversion)
+    };
 
 	// Verify that the pin is valid
 	static_assert(FastPin<FIRST_PIN>::validpin(), "This pin has been marked as an invalid pin, common reasons includes it being a ground pin, read only, or too noisy (e.g. hooked up to the uart).");
@@ -200,6 +212,5 @@ public:
 	return __clock_cycles() - _start;
     }
 };
-
-FASTLED_NAMESPACE_END
+}  // namespace fl
 #endif

@@ -5,10 +5,10 @@
 // It uses fastgpio instead of actual SPI, which means you can use it on all pins.
 // It can run slightly faster than the default fastpin (bit banging).
 
-#include "FastLED.h"
+#include "fastspi_types.h"
+#include "fl/delay.h"
 
-FASTLED_NAMESPACE_BEGIN
-
+namespace fl {
 #if defined(FASTLED_APOLLO3)
 
 #define FASTLED_ALL_PINS_HARDWARE_SPI
@@ -18,7 +18,7 @@ class APOLLO3HardwareSPIOutput {
 	Selectable *m_pSelect;
 
 public:
-	APOLLO3HardwareSPIOutput() { m_pSelect = NULL; }
+	APOLLO3HardwareSPIOutput() { m_pSelect = nullptr; }
 	APOLLO3HardwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 
 	// set the object representing the selectable
@@ -38,8 +38,16 @@ public:
 	// release the CS select
 	void inline release() { /* TODO */ }
 
+	void endTransaction() {
+		waitFully();
+		release();
+	}
+
 	// wait until all queued up data has been written
 	static void waitFully() { /* TODO */ }
+
+	// finalize transmission (no-op on Apollo3, exists for compatibility with ESP32 Quad-SPI)
+	static void finalizeTransmission() { }
 
 	// write a byte as bits
 	static void writeByte(uint8_t b) {
@@ -104,7 +112,7 @@ public:
 
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		select();
 
 		int len = pixels.mLen;
@@ -128,7 +136,5 @@ public:
 };
 
 #endif
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

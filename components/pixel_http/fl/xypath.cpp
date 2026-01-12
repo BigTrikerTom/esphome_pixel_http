@@ -8,8 +8,8 @@
 
 #include <math.h>
 
-#include "fl/assert.h"
-#include "fl/function.h"
+#include "fl/stl/assert.h"
+#include "fl/stl/function.h"
 #include "fl/gradient.h"
 #include "fl/lut.h"
 #include "fl/map_range.h"
@@ -18,7 +18,7 @@
 #include "fl/xypath.h"
 #include "fl/xypath_renderer.h"
 
-#include "fl/atomic.h"
+#include "fl/stl/atomic.h"
 #include "fl/thread_local.h"
 
 namespace fl {
@@ -288,8 +288,8 @@ void XYPath::drawGradient(const Gradient &gradient, float from, float to,
 }
 
 int XYPath::calculateSteps(float from, float to) {
-    float diff = fl::clamp(ABS(to - from), 0.0f, 1.0f);
-    return MAX(1, 200 * diff);
+    float diff = fl::clamp(FL_ABS(to - from), 0.0f, 1.0f);
+    return FL_MAX(1, 200 * diff);
 }
 
 bool XYPath::hasDrawBounds() const { return mPathRenderer->hasDrawBounds(); }

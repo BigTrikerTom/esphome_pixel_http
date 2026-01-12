@@ -1,21 +1,21 @@
 
 #pragma once
 
-// #include "fl/assert.h"
-// #include "fl/function.h"
+// #include "fl/stl/assert.h"
+// #include "fl/stl/function.h"
 // #include "fl/lut.h"
 // #include "fl/map_range.h"
 // #include "fl/math_macros.h"
 // #include "fl/raster.h"
 // #include "fl/xypath.h"
-#include "fl/function.h"
-#include "fl/memory.h"
+#include "fl/stl/function.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
 #include "fl/tile2x2.h"
 #include "fl/transform.h"
 
 namespace fl {
 
-FASTLED_SMART_PTR(XYPathGenerator);
+FASTLED_SHARED_PTR(XYPathGenerator);
 
 class XYPathRenderer {
   public:

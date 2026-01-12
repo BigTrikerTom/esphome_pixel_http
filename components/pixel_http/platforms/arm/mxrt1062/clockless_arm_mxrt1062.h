@@ -1,20 +1,25 @@
 #ifndef __INC_CLOCKLESS_ARM_MXRT1062_H
 #define __INC_CLOCKLESS_ARM_MXRT1062_H
 
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/chipsets/timing_traits.h"
+namespace fl {
 // Definition for a single channel clockless controller for the teensy4
 // See clockless.h for detailed info on how the template parameters are used.
 #if defined(FASTLED_TEENSY4)
 
-#define FASTLED_HAS_CLOCKLESS 1
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
 #define _FASTLED_NS_TO_DWT(_NS) (((F_CPU_ACTUAL>>16)*(_NS)) / (1000000000UL>>16))
 
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
 	typedef typename FastPin<DATA_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<DATA_PIN>::port_t data_t;
+
+	// Extract timing values from ChipsetTiming struct at compile-time
+	static constexpr uint32_t T1 = TIMING::T1;
+	static constexpr uint32_t T2 = TIMING::T2;
+	static constexpr uint32_t T3 = TIMING::T3;
 
 	data_t mPinMask;
 	data_ptr_t mPort;
@@ -23,9 +28,9 @@ class ClocklessController : public CPixelLEDController<RGB_ORDER> {
 
 public:
 	static constexpr int __DATA_PIN() { return DATA_PIN; }
-	static constexpr int __T1() { return T1; }
-	static constexpr int __T2() { return T2; }
-	static constexpr int __T3() { return T3; }
+	static constexpr uint32_t __T1() { return T1; }
+	static constexpr uint32_t __T2() { return T2; }
+	static constexpr uint32_t __T3() { return T3; }
 	static constexpr EOrder __RGB_ORDER() { return RGB_ORDER; }
 	static constexpr int __XTRA0() { return XTRA0; }
 	static constexpr bool __FLIP() { return FLIP; }
@@ -125,7 +130,5 @@ protected:
 	}
 };
 #endif
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

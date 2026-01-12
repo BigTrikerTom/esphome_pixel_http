@@ -1,7 +1,7 @@
 #ifndef __INC_BLOCK_CLOCKLESS_ARM_K20_H
 #define __INC_BLOCK_CLOCKLESS_ARM_K20_H
 
-#include "fl/namespace.h"
+#include "fl/chipsets/timing_traits.h"
 
 // Definition for a single channel clockless controller for the k20 family of chips, like that used in the teensy 3.0/3.1
 // See clockless.h for detailed info on how the template parameters are used.
@@ -14,14 +14,32 @@
 
 #define PORT_MASK (((1<<LANES)-1) & ((FIRST_PIN==2) ? 0xFF : 0xFFF))
 
-#define USED_LANES ((FIRST_PIN==2) ? MIN(LANES,8) : MIN(LANES,12))
+#define USED_LANES ((FIRST_PIN==2) ? FL_MIN(LANES,8) : FL_MIN(LANES,12))
 
 #include <kinetis.h>
-
-FASTLED_NAMESPACE_BEGIN
-
-template <uint8_t LANES, int FIRST_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 40>
+namespace fl {
+/// @brief ARM K20 (Teensy 3.0/3.1) Block Clockless LED Controller
+/// @tparam LANES Number of parallel data lines
+/// @tparam FIRST_PIN First pin number (determines port)
+/// @tparam TIMING ChipsetTiming structure containing T1, T2, T3, and RESET values
+/// @tparam RGB_ORDER Color order (RGB, GRB, etc.)
+/// @tparam XTRA0 Additional parameter for platform-specific needs
+/// @tparam FLIP Flip the output bit order if true
+/// @tparam WAIT_TIME Wait time between updates in microseconds
+///
+/// Example usage with named timing constant:
+/// @code
+///   InlineBlockClocklessController<8, 15, TIMING_WS2812_800KHZ, GRB> controller;
+/// @endcode
+template <uint8_t LANES, int FIRST_PIN, typename TIMING, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false>
 class InlineBlockClocklessController : public CPixelLEDController<RGB_ORDER, LANES, PORT_MASK> {
+	// Extract timing values from struct at compile-time
+	enum : uint32_t {
+		T1 = TIMING::T1,
+		T2 = TIMING::T2,
+		T3 = TIMING::T3,
+		WAIT_TIME = TIMING::RESET
+	};
 	typedef typename FastPin<FIRST_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<FIRST_PIN>::port_t data_t;
 
@@ -325,9 +343,7 @@ public:
 		return ARM_DWT_CYCCNT;
 	}
 };
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif
 
 #endif

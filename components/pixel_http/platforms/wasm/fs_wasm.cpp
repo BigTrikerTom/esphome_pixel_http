@@ -36,80 +36,79 @@
 #include <emscripten/html5.h>
 #include <emscripten/val.h>
 
-#include <map>
-#include <mutex>
-#include <stdio.h>
-#include <vector>
+#include <map> // ok include
+#include <mutex> // ok include
+#include <stdio.h> // ok include
+#include <vector> // ok include
 
 #include "fl/dbg.h"
 #include "fl/file_system.h"
 #include "fl/json.h"
 #include "fl/math_macros.h"
-#include "fl/namespace.h"
-#include "fl/memory.h"
+#include "fl/stl/memory.h"
 #include "fl/str.h"
 #include "fl/warn.h"
-#include "fl/mutex.h"
+#include "fl/stl/mutex.h"
 #include "platforms/wasm/js.h"
 
 
 namespace fl {
 
-FASTLED_SMART_PTR(FsImplWasm);
-FASTLED_SMART_PTR(WasmFileHandle);
+FASTLED_SHARED_PTR(FsImplWasm);
+FASTLED_SHARED_PTR(WasmFileHandle);
 
 // Map is great because it doesn't invalidate it's data members unless erase is
 // called.
-FASTLED_SMART_PTR(FileData);
+FASTLED_SHARED_PTR(FileData);
 
 class FileData {
   public:
     FileData(size_t capacity) : mCapacity(capacity) { mData.reserve(capacity); }
-    FileData(const std::vector<uint8_t> &data, size_t len)
+    FileData(const std::vector<uint8_t> &data, size_t len)  // okay std namespace
         : mData(data), mCapacity(len) {}
     FileData() = default;
 
     void append(const uint8_t *data, size_t len) {
-        fl::lock_guard<fl::mutex> lock(mMutex);
+        fl::unique_lock<fl::mutex> lock(mMutex);
         mData.insert(mData.end(), data, data + len);
-        mCapacity = MAX(mCapacity, mData.size());
+        mCapacity = FL_MAX(mCapacity, mData.size());
     }
 
     size_t read(size_t pos, uint8_t *dst, size_t len) {
-        fl::lock_guard<fl::mutex> lock(mMutex);
+        fl::unique_lock<fl::mutex> lock(mMutex);
         if (pos >= mData.size()) {
             return 0;
         }
         size_t bytesAvailable = mData.size() - pos;
-        size_t bytesToActuallyRead = MIN(len, bytesAvailable);
+        size_t bytesToActuallyRead = FL_MIN(len, bytesAvailable);
         auto begin_it = mData.begin() + pos;
         auto end_it = begin_it + bytesToActuallyRead;
-        std::copy(begin_it, end_it, dst);
+        std::copy(begin_it, end_it, dst);  // okay std namespace
         return bytesToActuallyRead;
     }
 
     bool ready(size_t pos) {
-        fl::lock_guard<fl::mutex> lock(mMutex);
+        fl::unique_lock<fl::mutex> lock(mMutex);
         return mData.size() == mCapacity || pos < mData.size();
     }
 
     size_t bytesRead() const {
-        fl::lock_guard<fl::mutex> lock(mMutex);
+        fl::unique_lock<fl::mutex> lock(mMutex);
         return mData.size();
     }
 
     size_t capacity() const {
-        fl::lock_guard<fl::mutex> lock(mMutex);
+        fl::unique_lock<fl::mutex> lock(mMutex);
         return mCapacity;
     }
 
   private:
-    std::vector<uint8_t> mData;
+    std::vector<uint8_t> mData;  // okay std namespace
     size_t mCapacity = 0;
     mutable fl::mutex mMutex;
 };
 
-typedef std::map<Str, FileDataPtr> FileMap;
+typedef std::map<Str, FileDataPtr> FileMap;  // okay std namespace
 static FileMap gFileMap;
 // At the time of creation, it's unclear whether this can be called by multiple
 // threads. With an std::map items remain valid while not erased. So we only
@@ -211,7 +210,7 @@ class FsImplWasm : public fl::FsImpl {
         Str path(_path);
         FileHandlePtr out;
         {
-            fl::lock_guard<fl::mutex> lock(gFileMapMutex);
+            fl::unique_lock<fl::mutex> lock(gFileMapMutex);
             auto it = gFileMap.find(path);
             if (it != gFileMap.end()) {
                 auto &data = it->second;
@@ -227,7 +226,7 @@ class FsImplWasm : public fl::FsImpl {
 };
 
 FileDataPtr _findIfExists(const Str &path) {
-    fl::lock_guard<fl::mutex> lock(gFileMapMutex);
+    fl::unique_lock<fl::mutex> lock(gFileMapMutex);
     auto it = gFileMap.find(path);
     if (it != gFileMap.end()) {
         return it->second;
@@ -236,31 +235,29 @@ FileDataPtr _findIfExists(const Str &path) {
 }
 
 FileDataPtr _findOrCreate(const Str &path, size_t len) {
-    fl::lock_guard<fl::mutex> lock(gFileMapMutex);
+    fl::unique_lock<fl::mutex> lock(gFileMapMutex);
     auto it = gFileMap.find(path);
     if (it != gFileMap.end()) {
         return it->second;
     }
     auto entry = fl::make_shared<FileData>(len);
-    gFileMap.insert(std::make_pair(path, entry));
+    gFileMap.insert(std::make_pair(path, entry));  // okay std namespace
     return entry;
 }
 
 FileDataPtr _createIfNotExists(const Str &path, size_t len) {
-    fl::lock_guard<fl::mutex> lock(gFileMapMutex);
+    fl::unique_lock<fl::mutex> lock(gFileMapMutex);
     auto it = gFileMap.find(path);
     if (it != gFileMap.end()) {
         return FileDataPtr();
     }
     auto entry = fl::make_shared<FileData>(len);
-    gFileMap.insert(std::make_pair(path, entry));
+    gFileMap.insert(std::make_pair(path, entry));  // okay std namespace
     return entry;
 }
 
 } // namespace fl
-
-FASTLED_USING_NAMESPACE
-
+using namespace fl;
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE bool jsInjectFile(const char *path, const uint8_t *data,

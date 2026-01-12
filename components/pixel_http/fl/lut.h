@@ -4,20 +4,19 @@
 LUT - Look up table implementation for various types.
 */
 
-#include "fl/allocator.h"
+#include "fl/stl/allocator.h"
 #include "fl/force_inline.h"
-#include "fl/memory.h"
-#include "fl/stdint.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
+#include "fl/stl/unique_ptr.h"  // For fl::unique_ptr<T>
+#include "fl/stl/stdint.h"
 
 #include "fl/int.h"
 #include "fl/geometry.h"
-#include "fl/namespace.h"
-
 namespace fl {
 
 // LUT holds a look up table to map data from one
 // value to another. This can be quite big (1/3rd of the frame buffer)
-// so a Referent is used to allow memory sharing.
+// so fl::shared_ptr is used to allow memory sharing.
 
 template <typename T> class LUT;
 
@@ -26,10 +25,10 @@ typedef LUT<vec2<u16>> LUTXY16;
 typedef LUT<vec2f> LUTXYFLOAT;
 typedef LUT<vec3f> LUTXYZFLOAT;
 
-FASTLED_SMART_PTR_NO_FWD(LUT16);
-FASTLED_SMART_PTR_NO_FWD(LUTXY16);
-FASTLED_SMART_PTR_NO_FWD(LUTXYFLOAT);
-FASTLED_SMART_PTR_NO_FWD(LUTXYZFLOAT);
+FASTLED_SHARED_PTR_NO_FWD(LUT16);
+FASTLED_SHARED_PTR_NO_FWD(LUTXY16);
+FASTLED_SHARED_PTR_NO_FWD(LUTXYFLOAT);
+FASTLED_SHARED_PTR_NO_FWD(LUTXYZFLOAT);
 
 // Templated lookup table.
 template <typename T> class LUT {

@@ -7,8 +7,7 @@
 /// value of type T or an Error. It provides convenient ok() checking and safe
 /// value access with assertions on misuse.
 
-#include "fl/namespace.h"
-#include "fl/variant.h"
+#include "fl/stl/variant.h"
 #include "fl/promise.h"  // For Error type
 
 namespace fl {
@@ -17,7 +16,7 @@ namespace fl {
 /// @tparam T The success value type
 /// 
 /// result provides a clean API for handling success/error results from
-/// async operations. It wraps a Variant<T, Error> but provides more ergonomic
+/// async operations. It wraps a variant<T, Error> but provides more ergonomic
 /// access patterns with ok() checking and automatic assertions.
 ///
 /// @section Usage
@@ -89,7 +88,7 @@ public:
     T& value() {
         if (!ok()) {
             // Return static empty object instead of crashing
-            static T empty{};
+            static T empty{};  // okay static in header
             return empty;
         }
         return mResult.template get<T>();
@@ -117,12 +116,12 @@ public:
     
     /// @brief Access the underlying variant (for advanced usage)
     /// @return Reference to the internal variant
-    const fl::Variant<T, Error>& variant() const {
+    const fl::variant<T, Error>& variant() const {
         return mResult;
     }
 
 private:
-    fl::Variant<T, Error> mResult;
+    fl::variant<T, Error> mResult;
 };
 
 /// @brief Helper function to create a successful result

@@ -1,5 +1,6 @@
 
 
+// ok no namespace fl
 #ifdef __EMSCRIPTEN__
 
 // ⚠️⚠️⚠️ WASM-SPECIFIC ACTIVE STRIP DATA WRAPPER ⚠️⚠️⚠️
@@ -22,11 +23,17 @@
 //
 // ⚠️⚠️⚠️ DO NOT DUPLICATE SHARED FUNCTIONALITY HERE ⚠️⚠️⚠️
 
+#include <emscripten.h>
+
 #include "platforms/shared/active_strip_data/active_strip_data.h"
 #include "fl/id_tracker.h"
 
 /// WASM-SPECIFIC: Early initialization using GCC constructor attribute.
-__attribute__((constructor)) void __init_ActiveStripData() {
+/// EMSCRIPTEN_KEEPALIVE prevents the function and its call to Instance()
+/// from being optimized out during LTO linking.
+__attribute__((constructor))
+EMSCRIPTEN_KEEPALIVE
+void __init_ActiveStripData() {
     fl::ActiveStripData::Instance();
 }
 

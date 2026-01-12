@@ -1,35 +1,39 @@
 #ifndef __INC_CLOCKLESS_BLOCK_ESP8266_H
 #define __INC_CLOCKLESS_BLOCK_ESP8266_H
 
-#include "fl/stdint.h"
-#include "fl/namespace.h"
+#include "fl/stl/stdint.h"
 #include "fl/register.h"
+#include "fl/math_macros.h"
+#include "fl/fastpin.h"
 #include "eorder.h"
 #include "transpose8x1_noinline.h"
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
 
 #define FASTLED_HAS_BLOCKLESS 1
 
 #define FIX_BITS(bits) (((bits & 0x0fL) << 12) | (bits & 0x30))
 
-#ifndef MIN
-#define MIN(X,Y) (((X)<(Y)) ? (X):(Y))
-#endif
-
-#define USED_LANES (MIN(LANES, 6))
+#define USED_LANES (FL_MIN(LANES, 6))
 #define PORT_MASK (((1 << USED_LANES)-1) & 0x0000FFFFL)
 #define PIN_MASK FIX_BITS(PORT_MASK)
-
-FASTLED_NAMESPACE_BEGIN
-
+namespace fl {
 #ifdef FASTLED_DEBUG_COUNT_FRAME_RETRIES
 extern uint32_t _frame_cnt;
 extern uint32_t _retry_cnt;
 #endif
 
-template <uint8_t LANES, int FIRST_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <uint8_t LANES, int FIRST_PIN, typename TIMING, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false>
 class InlineBlockClocklessController : public CPixelLEDController<RGB_ORDER, LANES, PORT_MASK> {
 	typedef typename FastPin<FIRST_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<FIRST_PIN>::port_t data_t;
+
+	enum : uint32_t {
+		T1 = TIMING::T1,
+		T2 = TIMING::T2,
+		T3 = TIMING::T3,
+		WAIT_TIME = TIMING::RESET
+	};
 
 	CMinWait<WAIT_TIME> mWait;
 
@@ -117,7 +121,7 @@ public:
 
   	// This method is made static to force making register Y available to use for data on AVR - if the method is non-static, then
 	// gcc will use register Y for the this pointer.
-	static uint32_t IRAM_ATTR showRGBInternal(PixelController<RGB_ORDER, LANES, PORT_MASK> &allpixels) {
+	static uint32_t FL_IRAM showRGBInternal(PixelController<RGB_ORDER, LANES, PORT_MASK> &allpixels) {
 
 		// Setup the pixel controller and load/scale the first byte
 		Lines b0;
@@ -164,6 +168,5 @@ public:
 		return __clock_cycles() - _start;
 	}
 };
-
-FASTLED_NAMESPACE_END
+}  // namespace fl
 #endif

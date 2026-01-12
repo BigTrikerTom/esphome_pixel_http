@@ -12,11 +12,11 @@
 
 #include "fl/lut.h"
 #include "fl/math_macros.h"
-#include "fl/memory.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
 #include "fl/tile2x2.h"
 #include "fl/transform.h"
 #include "fl/unused.h"
-#include "fl/vector.h"
+#include "fl/stl/vector.h"
 #include "fl/warn.h"
 
 namespace fl {
@@ -25,21 +25,21 @@ class XYRasterU8Sparse;
 template <typename T> class function;
 
 // Smart pointers for the XYPath family.
-FASTLED_SMART_PTR(XYPath);
-FASTLED_SMART_PTR(PointPath);
-FASTLED_SMART_PTR(LinePath);
-FASTLED_SMART_PTR(CirclePath);
-FASTLED_SMART_PTR(HeartPath);
-FASTLED_SMART_PTR(ArchimedeanSpiralPath);
-FASTLED_SMART_PTR(RosePath);
-FASTLED_SMART_PTR(PhyllotaxisPath);
-FASTLED_SMART_PTR(GielisCurvePath);
-FASTLED_SMART_PTR(LinePathParams);
-FASTLED_SMART_PTR(RosePathParams);
-FASTLED_SMART_PTR(CatmullRomParams);
-FASTLED_SMART_PTR(CatmullRomPath);
+FASTLED_SHARED_PTR(XYPath);
+FASTLED_SHARED_PTR(PointPath);
+FASTLED_SHARED_PTR(LinePath);
+FASTLED_SHARED_PTR(CirclePath);
+FASTLED_SHARED_PTR(HeartPath);
+FASTLED_SHARED_PTR(ArchimedeanSpiralPath);
+FASTLED_SHARED_PTR(RosePath);
+FASTLED_SHARED_PTR(PhyllotaxisPath);
+FASTLED_SHARED_PTR(GielisCurvePath);
+FASTLED_SHARED_PTR(LinePathParams);
+FASTLED_SHARED_PTR(RosePathParams);
+FASTLED_SHARED_PTR(CatmullRomParams);
+FASTLED_SHARED_PTR(CatmullRomPath);
 
-// FASTLED_SMART_PTR(LissajousPath);
+// FASTLED_SHARED_PTR(LissajousPath);
 
 // BaseClasses.
 // Controllable parameter base class. Each subtype has a transform and
@@ -113,7 +113,7 @@ class CatmullRomParams : public XYPathParams {
     fl::size size() const { return points.size(); }
 
     // Vector of control points
-    HeapVector<vec2f> points;
+    fl::vector<vec2f> points;
 };
 
 /////////////////////////////////////////////////
@@ -273,6 +273,6 @@ class CatmullRomPath : public XYPathGenerator {
 };
 
 // Smart pointer for CatmullRomPath
-FASTLED_SMART_PTR(CatmullRomPath);
+FASTLED_SHARED_PTR(CatmullRomPath);
 
 } // namespace fl

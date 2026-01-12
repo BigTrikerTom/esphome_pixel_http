@@ -1,15 +1,20 @@
 #ifndef __INC_BLOCK_CLOCKLESS_ARM_MXRT1062_H
 #define __INC_BLOCK_CLOCKLESS_ARM_MXRT1062_H
 
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/chipsets/timing_traits.h"
+namespace fl {
 // Definition for a single channel clockless controller for the teensy4
 // See clockless.h for detailed info on how the template parameters are used.
 #if defined(FASTLED_TEENSY4)
 
 #define __FL_T4_MASK ((1<<(LANES))-1)
-template <uint8_t LANES, int FIRST_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <uint8_t LANES, int FIRST_PIN, typename TIMING, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class FlexibleInlineBlockClocklessController : public CPixelLEDController<RGB_ORDER, LANES, __FL_T4_MASK> {
+    // Extract timing values from ChipsetTiming struct at compile-time
+    static constexpr uint32_t T1 = TIMING::T1;
+    static constexpr uint32_t T2 = TIMING::T2;
+    static constexpr uint32_t T3 = TIMING::T3;
+
     uint8_t m_bitOffsets[16];
     uint8_t m_nActualLanes;
     uint8_t m_nLowBit;
@@ -36,7 +41,7 @@ public:
 
     virtual void init() {
         // pre-initialize
-        fl::memfill(m_bitOffsets,0,16);
+        fl::memset(m_bitOffsets,0,16);
         m_nActualLanes = 0;
         m_nLowBit = 33;
         m_nHighBit = 0;
@@ -208,7 +213,5 @@ class __FIBCC : public FlexibleInlineBlockClocklessController<NUM_LANES,DATA_PIN
 #define __FASTLED_HAS_FIBCC 1
 
 #endif //defined(FASTLED_TEENSY4)
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

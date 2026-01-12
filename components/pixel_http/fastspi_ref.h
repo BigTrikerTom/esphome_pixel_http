@@ -8,10 +8,8 @@
 #define __INC_FASTSPI_ARM_SAM_H
 
 #if FASTLED_DOXYGEN // guard against the arduino ide idiotically including every header file
-#include "FastLED.h"
+#include "fl/fastled.h"
 #include "fl/int.h"
-
-FASTLED_NAMESPACE_BEGIN
 
 /// A skeletal implementation of hardware SPI support.  Fill in the necessary code for init, waiting, and writing.  The rest of
 /// the method implementations should provide a starting point, even if they're not the most efficient to start with
@@ -21,7 +19,7 @@ class REFHardwareSPIOutput {
 
 public:
 	/// Default Constructor
-	SAMHardwareSPIOutput() { m_pSelect = NULL; }
+	SAMHardwareSPIOutput() { m_pSelect = nullptr; }
 
 	/// Constructor with selectable
 	SAMHArdwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
@@ -33,10 +31,15 @@ public:
 	void init() { /* TODO */ }
 
 	/// latch the CS select
-	void inline select() __attribute__((always_inline)) { if(m_pSelect != NULL) { m_pSelect->select(); } }
+	void inline select() __attribute__((always_inline)) { if(m_pSelect != nullptr) { m_pSelect->select(); } }
 
 	/// release the CS select
-	void inline release() __attribute__((always_inline)) { if(m_pSelect != NULL) { m_pSelect->release(); } }
+	void inline release() __attribute__((always_inline)) { if(m_pSelect != nullptr) { m_pSelect->release(); } }
+
+	void endTransaction() {
+		waitFully();
+		release();
+	}
 
 	/// wait until all queued up data has been written
 	static void waitFully() { /* TODO */ }
@@ -78,7 +81,7 @@ public:
 
 	/// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	/// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <fl::u8 FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <fl::u8 FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		select();
 		while(data != end) {
 			if(FLAGS & FLAG_START_BIT) {
@@ -98,7 +101,6 @@ public:
 
 };
 
-FASTLED_NAMESPACE_END
 
 #endif
 

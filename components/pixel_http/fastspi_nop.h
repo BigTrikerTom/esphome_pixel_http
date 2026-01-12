@@ -9,10 +9,9 @@
 
 #if FASTLED_DOXYGEN // Guard against the arduino ide idiotically including every header file
 
-#include "FastLED.h"
+#include "fl/fastled.h"
 #include "fl/int.h"
 
-FASTLED_NAMESPACE_BEGIN
 
 /// A nop/stub class, mostly to show the SPI methods that are needed/used by the various SPI chipset implementations.  Should
 /// be used as a definition for the set of methods that the spi implementation classes should use (since C++ doesn't support the
@@ -23,7 +22,7 @@ class NOPSPIOutput {
 
 public:
 	/// Default Constructor
-	NOPSPIOutput() { m_pSelect = NULL; }
+	NOPSPIOutput() { m_pSelect = nullptr; }
 
 	/// Constructor with selectable
 	NOPSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
@@ -39,6 +38,11 @@ public:
 
 	/// release the CS select
 	void release() { /* TODO */ }
+
+	void endTransaction() {
+		waitFully();
+		release();
+	}
 
 	/// wait until all queued up data has been written
 	void waitFully();
@@ -64,11 +68,10 @@ public:
 	template <fl::u8 BIT> inline static void writeBit(fl::u8 b) { /* TODO */ }
 
 	/// write out pixel data from the given PixelController object
-	template <fl::u8 FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) { /* TODO */ }
+	template <fl::u8 FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) { /* TODO */ }
 
 };
 
-FASTLED_NAMESPACE_END
 
 #endif
 #endif

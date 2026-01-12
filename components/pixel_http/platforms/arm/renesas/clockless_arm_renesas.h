@@ -1,8 +1,9 @@
 #ifndef __INC_CLOCKLESS_ARM_RENESAS
 #define __INC_CLOCKLESS_ARM_RENESAS
 
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
+namespace fl {
 // Definition for a single channel clockless controller for RA4M1 (Cortex M4)
 // See clockless.h for detailed info on how the template parameters are used.
 #define ARM_DEMCR               (*(volatile uint32_t *)0xE000EDFC) // Debug Exception and Monitor Control
@@ -12,10 +13,17 @@ FASTLED_NAMESPACE_BEGIN
 #define ARM_DWT_CYCCNT          (*(volatile uint32_t *)0xE0001004) // Cycle count register
 
 
-#define FASTLED_HAS_CLOCKLESS 1
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
+	// Extract timing values from ChipsetTiming struct and convert from nanoseconds to clock cycles
+	// Formula: cycles = (nanoseconds * CPU_MHz + 500) / 1000
+	// The +500 provides rounding to nearest integer
+	// Renesas RA4M1 uses DWT cycle counter at F_CPU (48MHz)
+	static constexpr uint32_t T1 = (TIMING::T1 * (F_CPU / 1000000UL) + 500) / 1000;
+	static constexpr uint32_t T2 = (TIMING::T2 * (F_CPU / 1000000UL) + 500) / 1000;
+	static constexpr uint32_t T3 = (TIMING::T3 * (F_CPU / 1000000UL) + 500) / 1000;
 	typedef typename FastPin<DATA_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<DATA_PIN>::port_t data_t;
 
@@ -122,7 +130,5 @@ protected:
 		return ARM_DWT_CYCCNT;
 	}
 };
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

@@ -1,8 +1,6 @@
 #ifndef __INC_FASTSPI_ARM_KL26_H
 #define __INC_FASTSPI_ARM_KL26_h
-
-FASTLED_NAMESPACE_BEGIN
-
+namespace fl {
 template <int VAL> void getScalars(uint8_t & sppr, uint8_t & spr) {
   if(VAL > 4096) { sppr=7; spr=8; }
   else if(VAL > 3584) { sppr=6; spr=8; }
@@ -135,7 +133,7 @@ class ARMHardwareSPIOutput {
   }
 
 public:
-  ARMHardwareSPIOutput() { m_pSelect = NULL; }
+  ARMHardwareSPIOutput() { m_pSelect = nullptr; }
   ARMHardwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; }
 
   // set the object representing the selectable
@@ -163,7 +161,7 @@ public:
 
   // latch the CS select
   void inline select() __attribute__((always_inline)) {
-    if(m_pSelect != NULL) { m_pSelect->select(); }
+    if(m_pSelect != nullptr) { m_pSelect->select(); }
     setSPIRate();
     enable_pins();
   }
@@ -172,7 +170,12 @@ public:
   // release the CS select
   void inline release() __attribute__((always_inline)) {
     disable_pins();
-    if(m_pSelect != NULL) { m_pSelect->release(); }
+    if(m_pSelect != nullptr) { m_pSelect->release(); }
+  }
+
+  void endTransaction() {
+    waitFully();
+    release();
   }
 
   // Wait for the world to be clear
@@ -222,7 +225,7 @@ public:
   void writeBytes(FASTLED_REGISTER uint8_t *data, int len) { writeBytes<DATA_NOP>(data, len); }
 
 
-  template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+  template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
     int len = pixels.mLen;
 
     select();
@@ -245,8 +248,11 @@ public:
     release();
   }
 
+  /// Finalize transmission (no-op for Teensy LC SPI)
+  /// This method exists for compatibility with other SPI implementations
+  /// that may need to flush buffers or perform post-transmission operations
+  static void finalizeTransmission() { }
+
 };
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

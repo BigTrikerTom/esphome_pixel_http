@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include "fl/stdint.h"
-
 #include "fl/force_inline.h"
 
 namespace fl {

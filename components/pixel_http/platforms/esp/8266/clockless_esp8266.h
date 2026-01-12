@@ -1,12 +1,11 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include "eorder.h"
-#include "fl/namespace.h"
 #include "fl/register.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
+namespace fl {
 #ifdef FASTLED_DEBUG_COUNT_FRAME_RETRIES
 extern uint32_t _frame_cnt;
 extern uint32_t _retry_cnt;
@@ -19,12 +18,23 @@ __attribute__ ((always_inline)) inline static uint32_t __clock_cycles() {
   return cyc;
 }
 
-#define FASTLED_HAS_CLOCKLESS 1
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 85>
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 85>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
 	typedef typename FastPin<DATA_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<DATA_PIN>::port_t data_t;
+
+	// Convert nanoseconds to CPU cycles (compile-time)
+	// Formula: cycles = (ns * (F_CPU / 1MHz) + 500) / 1000
+	// +500 for rounding to nearest cycle
+	static constexpr uint32_t NS_TO_CYCLES(uint32_t ns) {
+		return (ns * (F_CPU / 1000000UL) + 500) / 1000;
+	}
+
+	static constexpr uint32_t T1 = NS_TO_CYCLES(TIMING::T1);  // Convert nanoseconds → CPU cycles
+	static constexpr uint32_t T2 = NS_TO_CYCLES(TIMING::T2);
+	static constexpr uint32_t T3 = NS_TO_CYCLES(TIMING::T3);
 
 	data_t mPinMask;
 	data_ptr_t mPort;
@@ -88,7 +98,7 @@ protected:
 	}
 
 
-	static uint32_t IRAM_ATTR showRGBInternal(PixelController<RGB_ORDER> pixels) {
+	static uint32_t FL_IRAM showRGBInternal(PixelController<RGB_ORDER> pixels) {
 		// Setup the pixel controller and load/scale the first byte
 		pixels.preStepFirstByteDithering();
 		FASTLED_REGISTER uint32_t b = pixels.loadAndScale0();
@@ -162,5 +172,4 @@ protected:
 		return __clock_cycles() - start;
 	}
 };
-
-FASTLED_NAMESPACE_END
+}  // namespace fl

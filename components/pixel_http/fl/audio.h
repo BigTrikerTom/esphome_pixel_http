@@ -1,20 +1,18 @@
 #pragma once
 
 #include "fl/fft.h"
-#include "fl/math.h"
-#include "fl/memory.h"
-#include "fl/span.h"
-#include "fl/vector.h"
+#include "fl/stl/math.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
+#include "fl/stl/span.h"
+#include "fl/stl/vector.h"
 #include "fl/int.h"
-#include <math.h>
-#include "fl/stdint.h"
-#include "fl/span.h"
+#include "fl/stl/stdint.h"
 
 namespace fl {
 
 class AudioSampleImpl;
 
-FASTLED_SMART_PTR(AudioSampleImpl);
+FASTLED_SHARED_PTR(AudioSampleImpl);
 
 // AudioSample is a wrapper around AudioSampleImpl, hiding the reference
 // counting so that the api object can be simple and have standard object
@@ -27,7 +25,7 @@ class AudioSample {
     AudioSample(const AudioSample &other) : mImpl(other.mImpl) {}
     AudioSample(AudioSampleImplPtr impl) : mImpl(impl) {}
     ~AudioSample();
-    
+
     // Constructor that takes raw audio data and handles pooling internally
     AudioSample(fl::span<const fl::i16> span, fl::u32 timestamp = 0);
 
@@ -78,31 +76,31 @@ class SoundLevelMeter {
         processBlock(samples.data(), samples.size());
     }
 
-    /// @returns most recent block’s level in dBFS (≤ 0)
-    double getDBFS() const { return current_dbfs_; }
+    /// @returns most recent block's level in dBFS (≤ 0)
+    double getDBFS() const { return mCurrentDbfs; }
 
     /// @returns calibrated estimate in dB SPL
-    double getSPL() const { return current_spl_; }
+    double getSPL() const { return mCurrentSpl; }
 
     /// change your known noise-floor SPL at runtime
     void setFloorSPL(double spl_floor) {
-        spl_floor_ = spl_floor;
-        offset_ = spl_floor_ - dbfs_floor_global_;
+        mSplFloor = spl_floor;
+        mOffset = mSplFloor - mDbfsFloorGlobal;
     }
 
     /// reset so the next quiet block will re-initialize your floor
     void resetFloor() {
-        dbfs_floor_global_ = INFINITY_DOUBLE; // infinity<double>
-        offset_ = 0.0;
+        mDbfsFloorGlobal = FL_INFINITY_DOUBLE; // infinity<double>
+        mOffset = 0.0;
     }
 
   private:
-    double spl_floor_;         // e.g. 33.0 dB SPL
-    double smoothing_alpha_;   // 0 = pure min, >0 = slow adapt
-    double dbfs_floor_global_; // lowest dBFS seen so far
-    double offset_;            // spl_floor_ − dbfs_floor_global_
-    double current_dbfs_;      // last block’s dBFS
-    double current_spl_;       // last block’s estimated SPL
+    double mSplFloor;         // e.g. 33.0 dB SPL
+    double mSmoothingAlpha;   // 0 = pure min, >0 = slow adapt
+    double mDbfsFloorGlobal; // lowest dBFS seen so far
+    double mOffset;            // mSplFloor − mDbfsFloorGlobal
+    double mCurrentDbfs;      // last block's dBFS
+    double mCurrentSpl;       // last block's estimated SPL
 };
 
 // Implementation details.
@@ -116,17 +114,21 @@ class AudioSampleImpl {
     template <typename It> void assign(It begin, It end, fl::u32 timestamp) {
         mSignedPcm.assign(begin, end);
         mTimestamp = timestamp;
-        // calculate zero crossings
+        // Pre-compute zero crossings for O(1) access
         initZeroCrossings();
+        // RMS is computed lazily on first access to avoid blocking
+        mRmsComputed = false;
     }
     const VectorPCM &pcm() const { return mSignedPcm; }
     fl::u32 timestamp() const { return mTimestamp; }
-    
+
     // For object pool - reset internal state for reuse
     void reset() {
         mSignedPcm.clear();
         mZeroCrossings = 0;
+        mRms = 0.0f;
         mTimestamp = 0;
+        mRmsComputed = false;
     }
 
     // "Zero crossing factor". High values > .4 indicate hissing
@@ -138,12 +140,23 @@ class AudioSampleImpl {
     // signals to reject or accept a sound signal.
     //
     // Returns: a value -> [0.0f, 1.0f)
+    // O(1) - pre-computed in constructor
     float zcf() const {
         const fl::size n = pcm().size();
         if (n < 2) {
             return 0.f;
         }
         return float(mZeroCrossings) / static_cast<float>(n - 1);
+    }
+
+    // Root mean square amplitude of the audio signal
+    // Returns: RMS value (computed lazily on first access)
+    float rms() const {
+        if (!mRmsComputed) {
+            const_cast<AudioSampleImpl*>(this)->initRms();
+            const_cast<AudioSampleImpl*>(this)->mRmsComputed = true;
+        }
+        return mRms;
     }
 
   private:
@@ -161,9 +174,25 @@ class AudioSampleImpl {
         }
     }
 
+    void initRms() {
+        if (mSignedPcm.empty()) {
+            mRms = 0.0f;
+            return;
+        }
+        fl::u64 sum_sq = 0;
+        const int N = mSignedPcm.size();
+        for (int i = 0; i < N; ++i) {
+            fl::i32 x32 = fl::i32(mSignedPcm[i]);
+            sum_sq += x32 * x32;
+        }
+        mRms = sqrtf(float(sum_sq) / N);
+    }
+
     VectorPCM mSignedPcm;
     fl::i16 mZeroCrossings = 0;
+    float mRms = 0.0f;  // Lazily computed RMS value
     fl::u32 mTimestamp = 0;
+    mutable bool mRmsComputed = false;  // Track if RMS has been computed
 };
 
 } // namespace fl

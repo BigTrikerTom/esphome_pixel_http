@@ -1,12 +1,21 @@
 #ifndef __FASTSPI_ARM_NRF52_H
 #define __FASTSPI_ARM_NRF52_H
 
+#include "fl/force_inline.h"
+#include "fl/fastpin_base.h"
+#include "fastspi_types.h"
+#include "fl/eorder.h"
+#include "fl/delay.h"
+#include <nrf_spim.h>
+
+namespace fl {
+
 
 #ifndef FASTLED_FORCE_SOFTWARE_SPI
 
-    #include <nrf_spim.h>
-
-    #define FASTLED_ALL_PINS_HARDWARE_SPI
+    #ifndef FASTLED_ALL_PINS_HARDWARE_SPI
+        #define FASTLED_ALL_PINS_HARDWARE_SPI
+    #endif
 
 
     // NRF52810 has SPIM0: Frequencies from 125kbps to 8Mbps
@@ -22,7 +31,7 @@
 
     /// SPI_CLOCK_DIVIDER is number of CPU clock cycles per SPI transmission bit?
     template <uint8_t _DATA_PIN, uint8_t _CLOCK_PIN, uint32_t _SPI_CLOCK_DIVIDER>
-    class NRF52SPIOutput {
+    class NRF52HardwareSPIOutput {
     private:
         // static variables -- always using same SPIM instance
         static bool s_InUse;
@@ -108,7 +117,7 @@
         }
 
     public:
-        NRF52SPIOutput() {}
+        NRF52HardwareSPIOutput() {}
 
         // Low frequency GPIO is for signals with a frequency up to 10 kHz.  Lowest speed SPIM is 125kbps.
         static_assert(!FastPin<_DATA_PIN>::LowSpeedOnlyRecommended(),  "Invalid (low-speed only) pin specified");
@@ -162,6 +171,11 @@
             waitFully();
             s_InUse = false;
             restoreSpimConfig();
+        }
+
+        void endTransaction() {
+            waitFully();
+            release();
         }
 
         /// wait until all queued up data has been written
@@ -290,16 +304,21 @@
                 FastPin<_DATA_PIN>::lo();
             }
             // delay 1/2 cycle per SPI bit
-            delaycycles<_SPI_CLOCK_DIVIDER/2>();
+            fl::delaycycles<_SPI_CLOCK_DIVIDER/2>();
             FastPin<_CLOCK_PIN>::toggle();
-            delaycycles<_SPI_CLOCK_DIVIDER/2>();
+            fl::delaycycles<_SPI_CLOCK_DIVIDER/2>();
             FastPin<_CLOCK_PIN>::toggle();
             // re-enable the SPIM instance
             nrf_spim_enable(FASTLED_NRF52_SPIM);
         }
 
+        /// Finalize transmission (no-op for NRF52 SPI)
+        /// This method exists for compatibility with other SPI implementations
+        /// that may need to flush buffers or perform post-transmission operations
+        static void finalizeTransmission() { }
+
         /// write out pixel data from the given PixelController object, including select, release, and waiting
-        template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+        template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
             select();
             int len = pixels.mLen;
             // TODO: If user indicates a pre-allocated double-buffer,
@@ -325,16 +344,18 @@
     // Static member definition and initialization using templates.
     // see https://stackoverflow.com/questions/3229883/static-member-initialization-in-a-class-template#answer-3229919
     template <uint8_t _DATA_PIN, uint8_t _CLOCK_PIN, uint32_t _SPI_CLOCK_DIVIDER>
-    bool NRF52SPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_InUse = false;
+    bool NRF52HardwareSPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_InUse = false;
     template <uint8_t _DATA_PIN, uint8_t _CLOCK_PIN, uint32_t _SPI_CLOCK_DIVIDER>
-    bool NRF52SPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_NeedToWait = false;
+    bool NRF52HardwareSPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_NeedToWait = false;
     template <uint8_t _DATA_PIN, uint8_t _CLOCK_PIN, uint32_t _SPI_CLOCK_DIVIDER>
-    uint8_t NRF52SPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_BufferIndex = 0;
+    uint8_t NRF52HardwareSPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_BufferIndex = 0;
     template <uint8_t _DATA_PIN, uint8_t _CLOCK_PIN, uint32_t _SPI_CLOCK_DIVIDER>
-    uint8_t NRF52SPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_Buffer[2][2] = {{0,0},{0,0}};
+    uint8_t NRF52HardwareSPIOutput<_DATA_PIN, _CLOCK_PIN, _SPI_CLOCK_DIVIDER>::s_Buffer[2][2] = {{0,0},{0,0}};
 
 #endif // #ifndef FASTLED_FORCE_SOFTWARE_SPI
 
 
 
-#endif // #ifndef __FASTPIN_ARM_NRF52_H
+
+}  // namespace fl
+#endif // __FASTSPI_ARM_NRF52_H

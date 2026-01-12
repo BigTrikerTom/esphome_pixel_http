@@ -1,37 +1,9 @@
 #pragma once
 
+// DEPRECATED: This file has been moved to fl/fx/detail/fx_layer.h
+// This trampoline header will be removed in a future release.
+// Please update your includes to use: #include "fl/fx/detail/fx_layer.h"
 
-#include "fl/stdint.h"
-#include "crgb.h"
-#include "fl/namespace.h"
-#include "fl/memory.h"
-#include "fl/vector.h"
-#include "fl/warn.h"
-#include "fx/frame.h"
-#include "fx/fx.h"
+#warning "fx/detail/fx_layer.h is deprecated. Please use fl/fx/detail/fx_layer.h instead."
 
-
-namespace fl {
-
-FASTLED_SMART_PTR(FxLayer);
-class FxLayer {
-  public:
-    void setFx(fl::shared_ptr<Fx> newFx);
-
-    void draw(fl::u32 now);
-
-    void pause(fl::u32 now);
-
-    void release();
-
-    fl::shared_ptr<Fx> getFx();
-
-    CRGB *getSurface();
-
-  private:
-    fl::shared_ptr<Frame> frame;
-    fl::shared_ptr<Fx> fx;
-    bool running = false;
-};
-
-} // namespace fl
+#include "fl/fx/detail/fx_layer.h"

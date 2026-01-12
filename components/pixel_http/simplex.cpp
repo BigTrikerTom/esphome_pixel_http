@@ -2,7 +2,7 @@
 /// Implements simplex noise functions
 
 #define FASTLED_INTERNAL
-#include "FastLED.h"
+#include "fl/fastled.h"
 
 // This file implements simplex noise, which is an improved Perlin noise. This
 // implementation is a fixed-point version that avoids all uses of floating
@@ -28,7 +28,7 @@
 //
 //     double nf = (double)n / (1 << 12);
 
-FASTLED_NAMESPACE_BEGIN
+
 
 namespace simplex_detail {
 
@@ -466,4 +466,3 @@ uint16_t snoise16(uint32_t x, uint32_t y, uint32_t z, uint32_t w) {
 	return uint16_t(n) + 0x8000;
 }
 
-FASTLED_NAMESPACE_END

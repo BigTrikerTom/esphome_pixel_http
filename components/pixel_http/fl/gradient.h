@@ -1,10 +1,10 @@
 #pragma once
 
 #include "fl/colorutils.h"
-#include "fl/function.h"
-#include "fl/span.h"
-#include "fl/type_traits.h"
-#include "fl/variant.h"
+#include "fl/stl/function.h"
+#include "fl/stl/span.h"
+#include "fl/stl/type_traits.h"
+#include "fl/stl/variant.h"
 
 namespace fl {
 
@@ -36,7 +36,7 @@ class Gradient {
 
   private:
     using GradientVariant =
-        Variant<const CRGBPalette16 *, const CRGBPalette32 *,
+        variant<const CRGBPalette16 *, const CRGBPalette32 *,
                 const CRGBPalette256 *, GradientFunction>;
     GradientVariant mVariant;
 };
@@ -45,7 +45,7 @@ class GradientInlined {
   public:
     using GradientFunction = fl::function<CRGB(u8 index)>;
     using GradientVariant =
-        Variant<CRGBPalette16, CRGBPalette32, CRGBPalette256, GradientFunction>;
+        variant<CRGBPalette16, CRGBPalette32, CRGBPalette256, GradientFunction>;
     GradientInlined() = default;
 
     template <typename T> GradientInlined(const T &palette) { set(palette); }
@@ -61,8 +61,8 @@ class GradientInlined {
     CRGB colorAt(u8 index) const;
     void fill(span<const u8> input, span<CRGB> output) const;
 
-    GradientVariant &variant() { return mVariant; }
-    const GradientVariant &variant() const { return mVariant; }
+    GradientVariant &getVariant() { return mVariant; }
+    const GradientVariant &getVariant() const { return mVariant; }
 
   private:
     GradientVariant mVariant;

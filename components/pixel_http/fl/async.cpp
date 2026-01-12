@@ -1,17 +1,36 @@
 #include "fl/async.h"
-#include "fl/functional.h"
+#include "fl/stl/functional.h"
 #include "fl/singleton.h"
-#include "fl/algorithm.h"
+#include "fl/thread_local.h"
+#include "fl/stl/algorithm.h"
 #include "fl/task.h"
-#include "fl/time.h"
+#include "fl/stl/time.h"
 #include "fl/warn.h"
+#include "fl/dbg.h"
+#include "fl/thread_local.h"
 
 // Platform-specific includes
 #ifdef __EMSCRIPTEN__
 extern "C" void emscripten_sleep(unsigned int ms);
 #endif
 
+#ifdef FASTLED_STUB_IMPL
+#include "platforms/stub/coroutine_runner.h"  // Global coordination for stub platform
+#include <thread>  // ok include (for std::this_thread::yield)
+#endif
+
 namespace fl {
+
+namespace detail {
+
+
+/// @brief Get reference to thread-local await recursion depth
+/// @return Reference to the thread-local await depth counter
+int& await_depth_tls() {
+    static fl::ThreadLocal<int> s_await_depth(0);
+    return s_await_depth.access();
+}
+} // namespace detail
 
 AsyncManager& AsyncManager::instance() {
     return fl::Singleton<AsyncManager>::instance();
@@ -66,17 +85,35 @@ void async_run() {
 }
 
 void async_yield() {
+    // FL_DBG("async_yield: Called from main thread");
     // Always pump all async tasks first
     async_run();
-    
+
     // Platform-specific yielding behavior
 #ifdef __EMSCRIPTEN__
-    // WASM: Use emscripten_sleep to yield control to browser event loop
-    emscripten_sleep(1); // Sleep for 1ms to yield to browser
+    // WASM worker thread mode (PROXY_TO_PTHREAD): No explicit sleep needed.
+    // The OS scheduler naturally handles thread yielding. Busy-waiting here
+    // doesn't block the browser UI since we're on a background thread.
 #endif
+
+#ifdef FASTLED_STUB_IMPL
+    // Signal next coroutine in executor queue to run
+    auto& runner = fl::detail::CoroutineRunner::instance();
+    // FL_DBG("async_yield: CoroutineRunner instance at " << fl::hex << reinterpret_cast<uintptr_t>(&runner));
+    // FL_DBG("async_yield: Calling signal_next()");
+    runner.signal_next();
+    // FL_DBG("async_yield: signal_next() returned");
+
+    // Yield CPU to allow coroutine threads to actually execute
+    std::this_thread::yield();  // okay std namespace
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));  // okay std namespace
+#endif
+
+    // Standard async pumping (no global lock management here)
     for (int i = 0; i < 5; ++i) {
         async_run(); // Give other async tasks a chance
     }
+    // FL_DBG("async_yield: Returning");
 }
 
 size_t async_active_tasks() {
@@ -93,9 +130,9 @@ Scheduler& Scheduler::instance() {
 }
 
 int Scheduler::add_task(task t) {
-    if (t.get_impl()) {
-        t.get_impl()->mTaskId = mNextTaskId++;
-        int task_id = t.get_impl()->mTaskId;
+    if (t.is_valid()) {
+        int task_id = mNextTaskId.fetch_add(1);
+        t._set_id(task_id);
         mTasks.push_back(fl::move(t));
         return task_id;
     }
@@ -103,38 +140,37 @@ int Scheduler::add_task(task t) {
 }
 
 void Scheduler::update() {
-    uint32_t current_time = fl::time();
+    uint32_t current_time = fl::millis();
     
     // Use index-based iteration to avoid iterator invalidation issues
     for (fl::size i = 0; i < mTasks.size();) {
         task& t = mTasks[i];
-        auto impl = t.get_impl();
-        
-        if (!impl || impl->is_canceled()) {
-            // erase() returns bool in HeapVector, not iterator
+
+        if (!t.is_valid() || t._is_canceled()) {
+            // erase() returns bool in fl::vector, not iterator
             mTasks.erase(mTasks.begin() + i);
             // Don't increment i since we just removed an element
         } else {
             // Check if task is ready to run (frame tasks will return false here)
-            bool should_run = impl->ready_to_run(current_time);
+            bool should_run = t._ready_to_run(current_time);
 
             if (should_run) {
                 // Update last run time for recurring tasks
-                impl->set_last_run_time(current_time);
-                
+                t._set_last_run_time(current_time);
+
                 // Execute the task
-                if (impl->has_then()) {
-                    impl->execute_then();
+                if (t._has_then()) {
+                    t._execute_then();
                 } else {
-                    warn_no_then(impl->id(), impl->trace_label());
+                    warn_no_then(t._id(), t._trace_label());
                 }
-                
+
                 // Remove one-shot tasks, keep recurring ones
-                bool is_recurring = (impl->type() == TaskType::kEveryMs || impl->type() == TaskType::kAtFramerate);
+                bool is_recurring = (t._type() == TaskType::kEveryMs || t._type() == TaskType::kAtFramerate);
                 if (is_recurring) {
                     ++i; // Keep recurring tasks
                 } else {
-                    // erase() returns bool in HeapVector, not iterator
+                    // erase() returns bool in fl::vector, not iterator
                     mTasks.erase(mTasks.begin() + i);
                     // Don't increment i since we just removed an element
                 }
@@ -154,32 +190,31 @@ void Scheduler::update_after_frame_tasks() {
 }
 
 void Scheduler::update_tasks_of_type(TaskType task_type) {
-    uint32_t current_time = fl::time();
-    
+    uint32_t current_time = fl::millis();
+
     // Use index-based iteration to avoid iterator invalidation issues
     for (fl::size i = 0; i < mTasks.size();) {
         task& t = mTasks[i];
-        auto impl = t.get_impl();
-        
-        if (!impl || impl->is_canceled()) {
-            // erase() returns bool in HeapVector, not iterator
+
+        if (!t.is_valid() || t._is_canceled()) {
+            // erase() returns bool in fl::vector, not iterator
             mTasks.erase(mTasks.begin() + i);
             // Don't increment i since we just removed an element
-        } else if (impl->type() == task_type) {
+        } else if (t._type() == task_type) {
             // This is a frame task of the type we're looking for
-            bool should_run = impl->ready_to_run_frame_task(current_time);
+            bool should_run = t._ready_to_run_frame_task(current_time);
 
             if (should_run) {
                 // Update last run time for frame tasks (though they don't use it)
-                impl->set_last_run_time(current_time);
-                
+                t._set_last_run_time(current_time);
+
                 // Execute the task
-                if (impl->has_then()) {
-                    impl->execute_then();
+                if (t._has_then()) {
+                    t._execute_then();
                 } else {
-                    warn_no_then(impl->id(), impl->trace_label());
+                    warn_no_then(t._id(), t._trace_label());
                 }
-                
+
                 // Frame tasks are always one-shot, so remove them after execution
                 mTasks.erase(mTasks.begin() + i);
                 // Don't increment i since we just removed an element

@@ -1,8 +1,10 @@
  #ifndef __INC_BLOCK_CLOCKLESS_H
 #define __INC_BLOCK_CLOCKLESS_H
 
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
+#include "bitswap.h"
+namespace fl {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Base template for clockless controllers.  These controllers have 3 control points in their cycle for each bit.  The first point
@@ -25,12 +27,18 @@ typedef union {
     uint32_t raw[2];
 } Lines;
 
-#define TADJUST 0
-#define TOTAL ( (T1+TADJUST) + (T2+TADJUST) + (T3+TADJUST) )
-#define T1_MARK (TOTAL - (T1+TADJUST))
-#define T2_MARK (T1_MARK - (T2+TADJUST))
-template <uint8_t LANES, int FIRST_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <uint8_t LANES, int FIRST_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false>
 class InlineBlockClocklessController : public CPixelLEDController<RGB_ORDER, LANES, PORT_MASK> {
+	enum : uint32_t {
+		T1 = TIMING::T1,
+		T2 = TIMING::T2,
+		T3 = TIMING::T3,
+		WAIT_TIME = TIMING::RESET
+	};
+	#define TADJUST 0
+	#define TOTAL ( (T1+TADJUST) + (T2+TADJUST) + (T3+TADJUST) )
+	#define T1_MARK (TOTAL - (T1+TADJUST))
+	#define T2_MARK (T1_MARK - (T2+TADJUST))
 	typedef typename FastPin<FIRST_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<FIRST_PIN>::port_t data_t;
 
@@ -142,7 +150,7 @@ public:
 
     template<int BITS,int PX> __attribute__ ((always_inline)) inline static void writeBits(FASTLED_REGISTER uint32_t & next_mark, FASTLED_REGISTER Lines & b, Lines & b3, PixelController<RGB_ORDER,LANES, PORT_MASK> &pixels) { // , FASTLED_REGISTER uint32_t & b2)  {
         Lines b2;
-        transpose8x1(b.bytes,b2.bytes);
+        fl::transpose8x1(b.bytes,b2.bytes);
 
         FASTLED_REGISTER uint8_t d = pixels.template getd<PX>(pixels);
         FASTLED_REGISTER uint8_t scale = pixels.template getscale<PX>(pixels);
@@ -177,7 +185,5 @@ public:
 };
 
 #endif
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

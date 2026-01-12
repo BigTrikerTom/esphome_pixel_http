@@ -1,16 +1,22 @@
 #ifndef __INC_FASTPIN_ARM_RENESAS_H
 #define __INC_FASTPIN_ARM_RENESAS_H
 
-FASTLED_NAMESPACE_BEGIN
+#include "fl/force_inline.h"
+// Include fastpin_base.h for template definitions
+// This reopens namespace fl but template will still be in scope
+#include "fl/fastpin_base.h"
 
+#if !defined(FASTLED_FORCE_SOFTWARE_PINS)
+#include "bsp_api.h"
+#endif
+
+namespace fl {
 #if defined(FASTLED_FORCE_SOFTWARE_PINS)
 #warning "Software pin support forced, pin access will be slightly slower."
 #define NO_HARDWARE_PIN_SUPPORT
 #undef HAS_HARDWARE_PIN_SUPPORT
 
 #else
-
-#include "bsp_api.h"
 
 /// Template definition for STM32 style ARM pins, providing direct access to the various GPIO registers.  Note that this
 /// uses the full port GPIO registers.  In theory, in some way, bit-band register access -should- be faster, however I have found
@@ -22,6 +28,11 @@ public:
 
     typedef volatile uint16_t * port_ptr_t;
     typedef uint16_t port_t;
+
+    /// Pin is valid for use
+    constexpr static bool validpin() { return true; }
+    /// Low speed only recommended
+    constexpr static bool LowSpeedOnlyRecommended() { return false; }
 
     #define PORT ((R_PORT0_Type*)(_PORT))
     #define digitalBspPinToPort(P)		   (P >> 8)
@@ -132,8 +143,5 @@ _FL_DEFPIN(21, BSP_IO_PORT_00_PIN_14, R_PORT0_BASE );_FL_DEFPIN(22, BSP_IO_PORT_
 #define HAS_HARDWARE_PIN_SUPPORT 1
 
 #endif // FASTLED_FORCE_SOFTWARE_PINS
-
-FASTLED_NAMESPACE_END
-
-
+}  // namespace fl
 #endif // __INC_FASTPIN_ARM_RENESAS_H

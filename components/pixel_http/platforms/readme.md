@@ -3,6 +3,7 @@
 Table of Contents
 - [What lives here](#what-lives-here)
 - [Popular boards → where to look](#popular-boards--where-to-look)
+- [Platform header organization pattern](#platform-header-organization-pattern)
 - [Controller types in FastLED](#controller-types-in-fastled)
   - [Clockless (one-wire NRZ)](#1-clockless-onewire-nrz)
   - [SPI (clocked)](#2-spi-clocked)
@@ -57,6 +58,99 @@ The `src/platforms/` directory contains platform backends and integrations that 
 If you are targeting a desktop/browser host for demos or tests:
 - Native host tests → [stub](./stub/README.md) (with [shared](./shared/README.md) for data/UI)
 - Browser/WASM builds → [wasm](./wasm/README.md)
+
+### Platform header organization pattern
+
+FastLED has evolved its platform directory to contain **dispatch headers** that follow a **coarse-to-fine delegation pattern**. These dispatch headers live at the root of `src/platforms/` (e.g., `int.h`, `io_arduino.h`, `quad_spi_platform.h`) and route the compiler to the appropriate platform-specific implementations. This keeps platform routing clean and maintainable.
+
+**Architecture**: Headers at `platforms/header.h` perform **coarse platform detection** (ESP32, AVR, ARM families) and delegate to platform-specific subdirectories for **fine-grained detection** (ESP32-S3, ATmega328P, SAMD51, etc.).
+
+#### Pattern structure
+
+```cpp
+// platforms/header.h - Coarse detection
+#if defined(FASTLED_TESTING)
+    #include "platforms/stub/platform_stub.h"
+#elif defined(ESP32)
+    // Delegate to ESP-specific header for fine-grained variant detection
+    #include "platforms/esp/platform_esp.h"
+#elif defined(__AVR__)
+    #include "platforms/avr/platform_avr.h"
+#else
+    // Fallback
+#endif
+```
+
+```cpp
+// platforms/esp/platform_esp.h - Fine-grained detection
+#if defined(ESP32) || defined(CONFIG_IDF_TARGET_ESP32)
+    // ESP32 classic
+#elif defined(ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S2)
+    // ESP32-S2
+#elif defined(ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S3)
+    // ESP32-S3
+#elif defined(ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    // ESP32-C3
+#elif defined(ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    // ESP32-P4
+// ... etc
+#endif
+```
+
+#### Why this pattern?
+
+1. **Coarse headers stay simple**: Only check for broad platform families (`ESP32`, `__AVR__`, `FASTLED_ARM`)
+2. **Fine-grained logic isolated**: Variant-specific detection (`ESP32S3`, `CONFIG_IDF_TARGET_ESP32C6`) lives in platform subdirectories
+3. **Easy to maintain**: Adding new variants only requires changes in platform-specific headers
+4. **Follows existing patterns**: See `platforms/int.h`, `platforms/audio.h` for reference implementations
+
+#### Real-world example: SPI hardware registration
+
+**Modern approach** uses lazy initialization with platform-specific implementations:
+
+**Platform-specific implementation** in `platforms/esp/32/drivers/i2s/spi_hw_i2s_esp32.cpp`:
+```cpp
+namespace fl {
+
+namespace platform {
+
+/// @brief Initialize ESP32 I2S-based SpiHw16 instances
+///
+/// This function is called lazily by SpiHw16::getAll() on first access.
+void initSpiHw16Instances() {
+    // Single static instance (I2S0 only available on ESP32)
+    static auto i2s0_controller = fl::make_shared<SpiHwI2SESP32>(0);
+    SpiHw16::registerInstance(i2s0_controller);
+}
+
+}  // namespace platform
+
+}  // namespace fl
+```
+
+**Platform dispatch header** in `platforms/esp/init_spi_hw_16.h`:
+```cpp
+#pragma once
+
+#include "platforms/esp/is_esp.h"
+
+#if defined(ESP32) && !defined(FL_IS_ESP_32S3) && ...
+namespace fl {
+namespace platform {
+void initSpiHw16Instances();
+}
+}
+#else
+#include "platforms/shared/init_spi_hw_16.h"  // No-op fallback
+#endif
+```
+
+**Key advantages**:
+- **Lazy initialization**: Instances are only created when first accessed via `getAll()`
+- **No static constructors**: Avoids initialization order issues and startup overhead
+- **Platform dispatch**: Clean separation between detection and implementation
+- **Meyer's Singleton**: Thread-safe lazy initialization using static local variables
+- **Type-safe shared pointers**: Automatic memory management with fl::shared_ptr
 
 ### Controller types in FastLED
 

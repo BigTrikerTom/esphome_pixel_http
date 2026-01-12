@@ -1,9 +1,7 @@
 #pragma once
 
-#include "fl/math_macros.h"
-#include "fl/namespace.h"
 #include "fl/scoped_array.h"
-#include "fl/stdint.h" // For standard integer types
+#include "fl/int.h"  // for size
 
 namespace fl {
 

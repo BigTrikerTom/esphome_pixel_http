@@ -1,5 +1,9 @@
+// ok no namespace fl
 #ifndef __INC_LED_SYSDEFS_APOLLO3_H
 #define __INC_LED_SYSDEFS_APOLLO3_H
+
+
+#include "fl/stl/stdint.h"
 
 #define FASTLED_APOLLO3
 

@@ -1,16 +1,15 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
-#include "fl/namespace.h"
-#include "fl/memory.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
 #include "fl/int.h"
 
 #include "crgb.h"
 
 namespace fl {
 
-FASTLED_SMART_PTR(ByteStream);
+FASTLED_SHARED_PTR(ByteStream);
 
 // An abstract class that represents a stream of bytes.
 class ByteStream {

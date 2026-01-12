@@ -2,14 +2,14 @@
 
 
 #include "fl/force_inline.h"
-#include "fl/namespace.h"
 #include "fl/unused.h"
 #include "fl/colorutils.h"
+#include "fl/math_macros.h"
 
 #include "fl/fill.h"
 #include "fl/blur.h"
 
-#include "FastLED.h"
+#include "fl/fastled.h"
 
 #define FUNCTION_FILL_RAINBOW(a,b,c,d) fl::fill_rainbow(a,b,c,d)
 #define FUNCTION_NAPPLY_GAMMA(a,b,c) fl::napplyGamma_video(a,b,c)
@@ -23,14 +23,6 @@
 #define FUNCTION_FILL_GRADIENT_RGB3(a,b,c,d,e) fl::fill_gradient_RGB(a,b,c,d,e)
 #define FUNCTION_FILL_GRADIENT_RGB4(a,b,c,d,e,f) fl::fill_gradient_RGB(a,b,c,d,e,f)
 
-#ifndef abs
-#include <stdlib.h>
-#endif
-
-
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
 
 template<class PIXEL_TYPE>
 class CPixelView;
@@ -134,7 +126,7 @@ public:
 
     /// Get the size of this set
     /// @return the size of the set, in number of LEDs
-    int size() { return abs(len); }
+    int size() { return FL_ABS(len); }
 
     /// Whether or not this set goes backwards
     /// @return whether or not the set is backwards
@@ -514,7 +506,7 @@ public:
 
 /// @} PixelSet
 
-FASTLED_NAMESPACE_END
+
 
 #undef FUNCTION_FILL_RAINBOW
 #undef FUNCTION_NAPPLY_GAMMA

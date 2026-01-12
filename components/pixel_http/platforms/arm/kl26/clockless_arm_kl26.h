@@ -1,17 +1,23 @@
 #ifndef __INC_CLOCKLESS_ARM_KL26
 #define __INC_CLOCKLESS_ARM_KL26
 
-#include "../common/m0clockless.h"
-#include "fl/namespace.h"
+#include "platforms/arm/common/m0clockless.h"
+#include "fl/chipsets/timing_traits.h"
 #include "eorder.h"
+namespace fl {
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
-FASTLED_NAMESPACE_BEGIN
-#define FASTLED_HAS_CLOCKLESS 1
-
-template <uint8_t DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <uint8_t DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
   typedef typename FastPinBB<DATA_PIN>::port_ptr_t data_ptr_t;
   typedef typename FastPinBB<DATA_PIN>::port_t data_t;
+
+  // Extract timing values from struct and convert from nanoseconds to clock cycles
+  // Formula: cycles = (nanoseconds * CPU_MHz + 500) / 1000
+  // The +500 provides rounding to nearest integer
+  static constexpr uint32_t T1 = (TIMING::T1 * (F_CPU / 1000000UL) + 500) / 1000;
+  static constexpr uint32_t T2 = (TIMING::T2 * (F_CPU / 1000000UL) + 500) / 1000;
+  static constexpr uint32_t T3 = (TIMING::T3 * (F_CPU / 1000000UL) + 500) / 1000;
 
   data_t mPinMask;
   data_ptr_t mPort;
@@ -55,14 +61,11 @@ public:
     data.adj = pixels.mAdvance;
 
     typename FastPin<DATA_PIN>::port_ptr_t portBase = FastPin<DATA_PIN>::port();
-    return showLedData<4,8,T1,T2,T3,RGB_ORDER, WAIT_TIME>(portBase, FastPin<DATA_PIN>::mask(), pixels.mData, pixels.mLen, &data);
+    return showLedData<4,8,TIMING,RGB_ORDER, WAIT_TIME>(portBase, FastPin<DATA_PIN>::mask(), pixels.mData, pixels.mLen, &data);
     // return 0; // 0x00FFFFFF - _VAL;
   }
 
 
 };
-
-FASTLED_NAMESPACE_END
-
-
+}  // namespace fl
 #endif // __INC_CLOCKLESS_ARM_KL26

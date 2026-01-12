@@ -1,12 +1,11 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include <string>
 
 #include "fl/file_system.h"
-#include "fl/namespace.h"
-#include "fl/memory.h"
-#include "fl/span.h"
+#include "fl/stl/memory.h"
+#include "fl/stl/span.h"
 
 namespace fl {
 

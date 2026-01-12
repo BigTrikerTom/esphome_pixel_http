@@ -1,3 +1,4 @@
+// ok no namespace fl
 #ifndef __LED_SYSDEFS_ARM_NRF51
 #define __LED_SYSDEFS_ARM_NRF51
 
@@ -7,7 +8,7 @@
 
 #define LED_TIMER NRF_TIMER1
 #define FASTLED_NO_PINMAP
-#define FASTLED_HAS_CLOCKLESS
+#define FL_CLOCKLESS_CONTROLLER_DEFINED
 
 #define FASTLED_SPI_BYTE_ONLY
 
@@ -20,7 +21,7 @@
 #define F_CPU 16000000
 #endif
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include <nrf51.h>
 #include <core_cm0.h>
 

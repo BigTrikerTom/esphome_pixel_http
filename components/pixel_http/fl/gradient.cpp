@@ -1,6 +1,6 @@
 
 #include "fl/gradient.h"
-#include "fl/assert.h"
+#include "fl/stl/assert.h"
 #include "fl/colorutils.h"
 
 namespace fl {
@@ -47,7 +47,7 @@ struct VisitorFill {
         //     indices.size() == output.size(),
         //     "Gradient::fill: indices and output must be the same size"
         //     "\nSize was" << indices.size() << " and " << output.size());
-        n = MIN(indices.size(), output.size());
+        n = FL_MIN(indices.size(), output.size());
     }
     void accept(const CRGBPalette16 *palette) {
         for (fl::size i = 0; i < n; ++i) {
@@ -141,7 +141,7 @@ Gradient::Gradient(const GradientInlined &other) {
         Gradient &mOwner;
     };
     Copy copy_to_self(*this);
-    other.variant().visit(copy_to_self);
+    other.getVariant().visit(copy_to_self);
 }
 
 } // namespace fl

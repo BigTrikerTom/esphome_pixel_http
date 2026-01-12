@@ -1,8 +1,10 @@
 #ifndef __INC_CLOCKLESS_ARM_D51
 #define __INC_CLOCKLESS_ARM_D51
 
-FASTLED_NAMESPACE_BEGIN
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
 
+namespace fl {
 // Definition for a single channel clockless controller for SAMD51
 // See clockless.h for detailed info on how the template parameters are used.
 #define ARM_DEMCR               (*(volatile uint32_t *)0xE000EDFC) // Debug Exception and Monitor Control
@@ -12,10 +14,28 @@ FASTLED_NAMESPACE_BEGIN
 #define ARM_DWT_CYCCNT          (*(volatile uint32_t *)0xE0001004) // Cycle count register
 
 
-#define FASTLED_HAS_CLOCKLESS 1
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+/// @brief ARM D51 (SAMD51) Clockless LED Controller
+/// @tparam DATA_PIN Pin number for data line output
+/// @tparam TIMING ChipsetTiming structure containing T1, T2, T3, and RESET values
+/// @tparam RGB_ORDER Color order (RGB, GRB, etc.)
+/// @tparam XTRA0 Additional parameter for platform-specific needs
+/// @tparam FLIP Flip the output bit order if true
+/// @tparam WAIT_TIME Wait time between updates in microseconds
+///
+/// Example usage with named timing constant:
+/// @code
+///   ClocklessController<5, TIMING_WS2812_800KHZ, GRB> controller;
+/// @endcode
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
+	// Extract timing values from struct and convert from nanoseconds to clock cycles
+	// Formula: cycles = (nanoseconds * CPU_MHz + 500) / 1000
+	// The +500 provides rounding to nearest integer
+	static constexpr uint32_t T1 = (TIMING::T1 * (F_CPU / 1000000UL) + 500) / 1000;
+	static constexpr uint32_t T2 = (TIMING::T2 * (F_CPU / 1000000UL) + 500) / 1000;
+	static constexpr uint32_t T3 = (TIMING::T3 * (F_CPU / 1000000UL) + 500) / 1000;
 	typedef typename FastPin<DATA_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<DATA_PIN>::port_t data_t;
 
@@ -122,7 +142,5 @@ protected:
 		return ARM_DWT_CYCCNT;
 	}
 };
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

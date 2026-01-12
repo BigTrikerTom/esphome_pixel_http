@@ -3,7 +3,6 @@
 /// @file cpixel_ledcontroller.h
 /// defines the templated version of the CLEDController class
 
-#include "FastLED.h"
 #include "led_sysdefs.h"
 #include "pixeltypes.h"
 #include "color.h"
@@ -13,8 +12,6 @@
 #include "fl/int.h"
 #include "pixel_controller.h"
 #include "cled_controller.h"
-
-FASTLED_NAMESPACE_BEGIN
 
 
 
@@ -43,7 +40,7 @@ protected:
     /// @param data the RGB data to write out to the strip
     /// @param nLeds the number of LEDs being written out
     /// @param scale_pre_mixed the RGB scaling of color adjustment + global brightness to apply to each LED (in RGB8 mode).
-    virtual void show(const struct CRGB *data, int nLeds, fl::u8 brightness) override {
+    virtual void show(const CRGB *data, int nLeds, fl::u8 brightness) override {
         ColorAdjustment color_adjustment = getAdjustmentData(brightness);
         PixelController<RGB_ORDER, LANES, MASK> pixels(data, nLeds < 0 ? -nLeds : nLeds, color_adjustment, getDither());
         if(nLeds < 0) {
@@ -67,6 +64,3 @@ public:
     /// @returns LANES from template
     int lanes() override { return LANES; }
 };
-
-
-FASTLED_NAMESPACE_END

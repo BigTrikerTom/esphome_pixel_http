@@ -1,7 +1,6 @@
 #include "active_strip_data.h"
 
-#include "fl/map.h"
-#include "fl/namespace.h"
+#include "fl/stl/map.h"
 #include "fl/str.h"
 #include "fl/json.h"
 #include "fl/unused.h"
@@ -17,10 +16,9 @@ ActiveStripData &ActiveStripData::Instance() {
     return fl::Singleton<ActiveStripData>::instance();
 }
 
-void ActiveStripData::update(int id, uint32_t now, const uint8_t *pixel_data,
-                             size_t size) {
+void ActiveStripData::update(int id, uint32_t now, fl::span<const uint8_t> pixel_data) {
     FL_UNUSED(now);
-    mStripMap.update(id, SliceUint8(pixel_data, size));
+    mStripMap.update(id, pixel_data);
 }
 
 void ActiveStripData::updateScreenMap(int id, const ScreenMap &screenmap) {
@@ -78,7 +76,8 @@ fl::string ActiveStripData::infoJsonString() {
     FLArduinoJson::JsonDocument doc;
     auto array = doc.to<FLArduinoJson::JsonArray>();
 
-    for (const auto &[stripIndex, stripData] : mStripMap) {
+    for (const auto &pair : mStripMap) {
+        int stripIndex = pair.first;
         auto obj = array.add<FLArduinoJson::JsonObject>();
         obj["strip_id"] = stripIndex;
         obj["type"] = "r8g8b8";
@@ -113,7 +112,8 @@ fl::string ActiveStripData::infoJsonStringNew() {
     auto json = fl::Json::createArray();
     
     // Add each strip as an object to the array
-    for (const auto &[stripIndex, stripData] : mStripMap) {
+    for (const auto &pair : mStripMap) {
+        int stripIndex = pair.first;
         auto stripObj = fl::Json::createObject();
         stripObj.set("strip_id", stripIndex);
         stripObj.set("type", "r8g8b8");

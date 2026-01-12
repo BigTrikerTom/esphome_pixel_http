@@ -17,9 +17,9 @@
 #include "esp_intr_alloc.h"
 #include "esp_memory_utils.h"
 #include "esp_pm.h"
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include "platforms/assert_defs.h"
-#include <string.h>
+#include "fl/stl/string.h"
 // #include "esp_lcd_panel_io_interface.h"
 // #include "esp_lcd_panel_io.h"
 #include "driver/gpio.h"
@@ -47,7 +47,7 @@
 #include "soc/gdma_reg.h"
 #include "platforms/esp/esp_version.h"
 
-#define IDF_5_4_OR_EARLIER (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 5, 0))
+#define IDF_5_2_OR_EARLIER (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 3, 0))
 
 // According to bug reports, this driver does not work well with the new WS2812-v5b. This is
 // probably due to the extrrra long reset time requirements of this chipset. so we put in
@@ -388,16 +388,13 @@ class I2SClocklessLedDriveresp32S3 {
         bus_config.bus_width = 16;
         bus_config.max_transfer_bytes =
             _nb_components * NUM_LED_PER_STRIP * 8 * 3 * 2 + __OFFSET + __OFFSET_END;
-        #if IDF_5_4_OR_EARLIER
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-        #endif
-        // In IDF 5.3, psram_trans_align became deprecated. We kick the can down
-        // the road a little bit and suppress the warning until idf 5.5 arrives.
+        // IDF 5.0-5.2 use alignment fields; IDF 5.3+ use dma_burst_size
+        #if IDF_5_2_OR_EARLIER
         bus_config.psram_trans_align = LCD_DRIVER_PSRAM_DATA_ALIGNMENT;
         bus_config.sram_trans_align = 4;
-        #if IDF_5_4_OR_EARLIER
-        #pragma GCC diagnostic pop
+        #else
+        // IDF 5.3+ uses dma_burst_size field (replaces both psram/sram alignment)
+        bus_config.dma_burst_size = 64;
         #endif
 
         esp_err_t bus_err = esp_lcd_new_i80_bus(&bus_config, &i80_bus);

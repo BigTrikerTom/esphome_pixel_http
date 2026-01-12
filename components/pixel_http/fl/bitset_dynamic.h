@@ -1,11 +1,10 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include "fl/int.h"
-#include <string.h> // for memcpy
 
 #include "fl/math_macros.h"
-#include "fl/memfill.h"
+#include "fl/stl/cstring.h"
 #include "fl/compiler_control.h"
 
 namespace fl {
@@ -27,7 +26,7 @@ class bitset_dynamic {
     fl::u32 _size = 0;
 
     // Helper to calculate block count from bit count
-    static fl::u32 calc_block_count(fl::u32 bit_count) {
+    static fl::u32 calc_block_count(fl::u32 bit_count) {  // okay static in header
         return (bit_count + bits_per_block - 1) / bits_per_block;
     }
 
@@ -42,7 +41,7 @@ class bitset_dynamic {
     bitset_dynamic(const bitset_dynamic &other) {
         if (other._size > 0) {
             resize(other._size);
-            memcpy(_blocks, other._blocks, _block_count * sizeof(block_type));
+            fl::memcpy(_blocks, other._blocks, _block_count * sizeof(block_type));
         }
     }
 
@@ -60,7 +59,7 @@ class bitset_dynamic {
         if (this != &other) {
             if (other._size > 0) {
                 resize(other._size);
-                memcpy(_blocks, other._blocks,
+                fl::memcpy(_blocks, other._blocks,
                        _block_count * sizeof(block_type));
             } else {
                 clear();
@@ -125,11 +124,11 @@ class bitset_dynamic {
 
         if (new_block_count != _block_count) {
             block_type *new_blocks = new block_type[new_block_count];
-            fl::memfill(new_blocks, 0, new_block_count * sizeof(block_type));
+            fl::memset(new_blocks, 0, new_block_count * sizeof(block_type));
 
             if (_blocks) {
-                fl::u32 copy_blocks = MIN(_block_count, new_block_count);
-                memcpy(new_blocks, _blocks, copy_blocks * sizeof(block_type));
+                fl::u32 copy_blocks = FL_MIN(_block_count, new_block_count);
+                fl::memcpy(new_blocks, _blocks, copy_blocks * sizeof(block_type));
             }
 
             delete[] _blocks;
@@ -163,7 +162,7 @@ class bitset_dynamic {
     FL_DISABLE_WARNING_NULL_DEREFERENCE
     void reset() noexcept {
         if (_blocks && _block_count > 0) {
-            fl::memfill(_blocks, 0, _block_count * sizeof(block_type));
+            fl::memset(_blocks, 0, _block_count * sizeof(block_type));
         }
     }
     FL_DISABLE_WARNING_POP
@@ -368,7 +367,7 @@ class bitset_dynamic {
             return result;
         }
         
-        fl::u32 min_blocks = MIN(_block_count, other._block_count);
+        fl::u32 min_blocks = FL_MIN(_block_count, other._block_count);
 
         for (fl::u32 i = 0; i < min_blocks; ++i) {
             result._blocks[i] = _blocks[i] & other._blocks[i];
@@ -385,7 +384,7 @@ class bitset_dynamic {
             return result;
         }
         
-        fl::u32 min_blocks = MIN(_block_count, other._block_count);
+        fl::u32 min_blocks = FL_MIN(_block_count, other._block_count);
 
         for (fl::u32 i = 0; i < min_blocks; ++i) {
             result._blocks[i] = _blocks[i] | other._blocks[i];
@@ -393,7 +392,7 @@ class bitset_dynamic {
 
         // Copy remaining blocks from the larger bitset
         if (_block_count > min_blocks) {
-            memcpy(result._blocks + min_blocks, _blocks + min_blocks,
+            fl::memcpy(result._blocks + min_blocks, _blocks + min_blocks,
                    (_block_count - min_blocks) * sizeof(block_type));
         }
 
@@ -408,7 +407,7 @@ class bitset_dynamic {
             return result;
         }
         
-        fl::u32 min_blocks = MIN(_block_count, other._block_count);
+        fl::u32 min_blocks = FL_MIN(_block_count, other._block_count);
 
         for (fl::u32 i = 0; i < min_blocks; ++i) {
             result._blocks[i] = _blocks[i] ^ other._blocks[i];
@@ -416,7 +415,7 @@ class bitset_dynamic {
 
         // Copy remaining blocks from the larger bitset
         if (_block_count > min_blocks) {
-            memcpy(result._blocks + min_blocks, _blocks + min_blocks,
+            fl::memcpy(result._blocks + min_blocks, _blocks + min_blocks,
                    (_block_count - min_blocks) * sizeof(block_type));
         }
 

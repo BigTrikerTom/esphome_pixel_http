@@ -7,10 +7,10 @@
 
 #include "fl/int.h"
 #include <math.h>
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
-#include "FastLED.h"
-#include "fl/assert.h"
+#include "fl/fastled.h"
+#include "fl/stl/assert.h"
 #include "fl/colorutils.h"
 #include "fl/unused.h"
 #include "fl/xymap.h"

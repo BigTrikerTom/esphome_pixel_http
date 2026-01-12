@@ -3,39 +3,29 @@
 #ifndef __INC_LIB8TION_H
 #define __INC_LIB8TION_H
 
-#include "FastLED.h"
 #include "lib8tion/types.h"
 #include "fl/deprecated.h"
 
 #include "fl/compiler_control.h"
 
-FL_DISABLE_WARNING_PUSH
-FL_DISABLE_WARNING_UNUSED_PARAMETER
-FL_DISABLE_WARNING_RETURN_TYPE
-FL_DISABLE_WARNING_IMPLICIT_INT_CONVERSION
-FL_DISABLE_WARNING_FLOAT_CONVERSION
-FL_DISABLE_WARNING_SIGN_CONVERSION
+#include "led_sysdefs.h"
 
-
-#ifndef __INC_LED_SYSDEFS_H
-#error WTH?  led_sysdefs needs to be included first
-#endif
 
 /// @file lib8tion.h
 /// Fast, efficient 8-bit math functions specifically
 /// designed for high-performance LED programming. 
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include "lib8tion/lib8static.h"
 #include "lib8tion/qfx.h"
 #include "lib8tion/memmove.h"
-#include "lib8tion/config.h"
+#include "platforms/math8_config.h"
 #include "fl/ease.h"
+#include "fl/stl/time.h"
 
 
 #if !defined(__AVR__)
-#include <string.h>
-// for memmove, memcpy, and memset if not defined here
+// memmove, memcpy, and memset are defined in lib8tion/memmove.h and fl/memfill.h
 #endif // end of !defined(__AVR__)
 
 
@@ -56,13 +46,13 @@ FL_DISABLE_WARNING_SIGN_CONVERSION
 ///    of 255, or a minimum of 0.  Useful for adding pixel
 ///    values.  E.g., qadd8( 200, 100) = 255.
 ///      @code
-///      qadd8( i, j) == MIN( (i + j), 0xFF )
-///      qsub8( i, j) == MAX( (i - j), 0 )
+///      qadd8( i, j) == FL_MIN( (i + j), 0xFF )
+///      qsub8( i, j) == FL_MAX( (i - j), 0 )
 ///      @endcode
 ///
 ///  - Saturating signed 8-bit ("7-bit") add.
 ///      @code
-///      qadd7( i, j) == MIN( (i + j), 0x7F)
+///      qadd7( i, j) == FL_MIN( (i + j), 0x7F)
 ///      @endcode
 ///
 ///  - Scaling (down) of unsigned 8- and 16- bit values.
@@ -240,10 +230,6 @@ FL_DISABLE_WARNING_SIGN_CONVERSION
 
 ///////////////////////////////////////////////////////////////////////
 
-
-
-
-FASTLED_NAMESPACE_BEGIN
 
 
 ///////////////////////////////////////////////////////////////////////
@@ -696,7 +682,7 @@ LIB8STATIC uint8_t squarewave8( uint8_t in, uint8_t pulsewidth=128)
 ///
 /// You can also force use of the get_millisecond_timer() function
 /// by \#defining `USE_GET_MILLISECOND_TIMER`.
-#define GET_MILLIS millis
+#define GET_MILLIS fl::millis
 #else
 uint32_t get_millisecond_timer();
 #define GET_MILLIS get_millisecond_timer
@@ -806,6 +792,10 @@ LIB8STATIC uint16_t beatsin88( accum88 beats_per_minute_88, uint16_t lowest = 0,
     uint16_t rangewidth = highest - lowest;
     uint16_t scaledbeat = scale16( beatsin, rangewidth);
     uint16_t result = lowest + scaledbeat;
+    // With FASTLED_SCALE8_FIXED=1, scale16 can return rangewidth+1, causing overflow
+    if (result > highest) {
+        result = highest;
+    }
     return result;
 }
 
@@ -824,6 +814,10 @@ LIB8STATIC uint16_t beatsin16( accum88 beats_per_minute, uint16_t lowest = 0, ui
     uint16_t rangewidth = highest - lowest;
     uint16_t scaledbeat = scale16( beatsin, rangewidth);
     uint16_t result = lowest + scaledbeat;
+    // With FASTLED_SCALE8_FIXED=1, scale16 can return rangewidth+1, causing overflow
+    if (result > highest) {
+        result = highest;
+    }
     return result;
 }
 
@@ -842,6 +836,10 @@ LIB8STATIC uint8_t beatsin8( accum88 beats_per_minute, uint8_t lowest = 0, uint8
     uint8_t rangewidth = highest - lowest;
     uint8_t scaledbeat = scale8( beatsin, rangewidth);
     uint8_t result = lowest + scaledbeat;
+    // With FASTLED_SCALE8_FIXED=1, scale8 can return rangewidth+1, causing overflow
+    if (result > highest) {
+        result = highest;
+    }
     return result;
 }
 
@@ -1253,8 +1251,32 @@ typedef CEveryNTimePeriods<uint8_t,hours8> CEveryNHours;
 #define USE_GET_MILLISECOND_TIMER
 #endif
 
-FASTLED_NAMESPACE_END
-
 #endif
 
-FL_DISABLE_WARNING_POP
+// Bring common math functions and types into global scope for backward compatibility
+using fl::qadd8;
+using fl::qsub8;
+using fl::qadd7;
+using fl::qmul8;
+using fl::add8;
+using fl::add8to16;
+using fl::sub8;
+using fl::avg8;
+using fl::avg16;
+using fl::avg8r;
+using fl::avg16r;
+using fl::avg7;
+using fl::avg15;
+using fl::mul8;
+using fl::abs8;
+using fl::blend8;
+using fl::mod8;
+using fl::addmod8;
+using fl::submod8;
+using fl::sqrt16;
+using fl::sqrt8;
+using fl::q44;
+using fl::q62;
+using fl::q88;
+using fl::q124;
+using fl::dim8_raw;

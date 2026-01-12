@@ -1,13 +1,16 @@
 #pragma once
 
 /*
-LRU (Least Recently Used) HashMap that is optimized for embedded devices.
-This hashmap has a maximum size and will automatically evict the least
+LRU (Least Recently Used) unordered_map that is optimized for embedded devices.
+This unordered_map has a maximum size and will automatically evict the least
 recently used items when it reaches capacity.
 */
 
-#include "fl/hash_map.h"
-#include "fl/type_traits.h"
+#include "fl/stl/unordered_map.h"
+#include "fl/stl/type_traits.h"
+#include "fl/hash.h"
+#include "fl/stl/limits.h"
+#include "fl/int.h"
 
 namespace fl {
 
@@ -134,7 +137,7 @@ class HashMapLru {
 
         // Find the entry with the oldest timestamp
         Key oldest_key;
-        u32 oldest_time = UINT32_MAX;
+        u32 oldest_time = fl::numeric_limits<u32>::max();
         bool found = false;
 
         for (auto it = mMap.begin(); it != mMap.end(); ++it) {
@@ -154,7 +157,7 @@ class HashMapLru {
         }
     }
 
-    HashMap<Key, ValueWithTimestamp, Hash, KeyEqual, INLINED_COUNT> mMap;
+    unordered_map<Key, ValueWithTimestamp, Hash, KeyEqual, INLINED_COUNT> mMap;
     fl::size mMaxSize;
     u32 mCurrentTime;
 };

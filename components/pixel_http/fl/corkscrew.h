@@ -29,16 +29,16 @@
  * - gapParams: Optional gap compensation for solder points in a strip.
  */
 
-#include "fl/allocator.h"
+#include "fl/stl/allocator.h"
 #include "fl/geometry.h"
-#include "fl/math.h"
+#include "fl/stl/math.h"
 #include "fl/math_macros.h"
-#include "fl/pair.h"
+#include "fl/stl/pair.h"
 #include "fl/tile2x2.h"
-#include "fl/vector.h"
-#include "fl/shared_ptr.h"
-#include "fl/variant.h"
-#include "fl/span.h"
+#include "fl/stl/vector.h"
+#include "fl/stl/shared_ptr.h"
+#include "fl/stl/variant.h"
+#include "fl/stl/span.h"
 #include "crgb.h"
 #include "fl/int.h"
 
@@ -86,7 +86,7 @@ class Corkscrew {
   public:
     
     // Pixel storage variants - can hold either external span or owned vector
-    using PixelStorage = fl::Variant<fl::span<CRGB>, fl::vector<CRGB, fl::allocator_psram<CRGB>>>;
+    using PixelStorage = fl::variant<fl::span<CRGB>, fl::vector<CRGB, fl::allocator_psram<CRGB>>>;
 
     // Iterator class moved from CorkscrewState
     class iterator {
@@ -97,48 +97,48 @@ class Corkscrew {
         using reference = vec2f &;
 
         iterator(const Corkscrew *corkscrew, fl::size position)
-            : corkscrew_(corkscrew), position_(position) {}
+            : mCorkscrew(corkscrew), mPosition(position) {}
 
         vec2f operator*() const;
 
         iterator &operator++() {
-            ++position_;
+            ++mPosition;
             return *this;
         }
 
         iterator operator++(int) {
             iterator temp = *this;
-            ++position_;
+            ++mPosition;
             return temp;
         }
 
         iterator &operator--() {
-            --position_;
+            --mPosition;
             return *this;
         }
 
         iterator operator--(int) {
             iterator temp = *this;
-            --position_;
+            --mPosition;
             return temp;
         }
 
         bool operator==(const iterator &other) const {
-            return position_ == other.position_;
+            return mPosition == other.mPosition;
         }
 
         bool operator!=(const iterator &other) const {
-            return position_ != other.position_;
+            return mPosition != other.mPosition;
         }
 
         difference_type operator-(const iterator &other) const {
-            return static_cast<difference_type>(position_) -
-                   static_cast<difference_type>(other.position_);
+            return static_cast<difference_type>(mPosition) -
+                   static_cast<difference_type>(other.mPosition);
         }
 
       private:
-        const Corkscrew *corkscrew_;
-        fl::size position_;
+        const Corkscrew *mCorkscrew;
+        fl::size mPosition;
     };
 
     // Constructors that integrate input parameters directly

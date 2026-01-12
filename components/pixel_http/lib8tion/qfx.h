@@ -1,11 +1,7 @@
 #pragma once
 
-#include "fl/stdint.h"
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
-
-
+#include "fl/stl/stdint.h"
+namespace fl {
 /// @addtogroup FractionalTypes
 /// @{
 
@@ -54,5 +50,10 @@ typedef qfx<uint16_t, 8,8> q88;
 typedef qfx<uint16_t, 12,4> q124;
 
 /// @} FractionalTypes
+}  // namespace fl
 
-FASTLED_NAMESPACE_END
+// Bring fractional types into global scope for backward compatibility
+using fl::q44;
+using fl::q62;
+using fl::q88;
+using fl::q124;

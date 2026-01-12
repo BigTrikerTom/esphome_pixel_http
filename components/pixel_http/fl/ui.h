@@ -1,20 +1,20 @@
 #pragma once
 
 
-#include "fl/namespace.h"
-#include "fl/memory.h"
+#include "fl/stl/shared_ptr.h"  // For shared_ptr
 #include "fl/json.h"
 #include "fl/str.h"
 #include "fl/int.h"
 #include "fl/audio.h"
+#include "fl/audio_input.h"  // For AudioConfig
 #include "fl/engine_events.h"
-#include "fl/function_list.h"
+#include "fl/stl/function.h"
 #include "fl/math_macros.h"
-#include "fl/type_traits.h"
+#include "fl/stl/type_traits.h"
 #include "fl/ui_impl.h"
 #include "fl/unused.h"
 #include "platforms/ui_defs.h"
-#include "sensors/button.h"
+#include "fl/sensors/button.h"
 #include "fl/virtual_if_not_avr.h"
 #include "fl/int.h"
 
@@ -27,7 +27,7 @@ namespace fl {
 // Base class for UI elements that provides string-based group functionality
 class UIElement {
   public:
-    UIElement() {}
+    UIElement();
     VIRTUAL_IF_NOT_AVR ~UIElement() {}
     virtual void setGroup(const fl::string& groupName) { mGroupName = groupName; }
 
@@ -45,13 +45,12 @@ class UISlider : public UIElement {
     FL_NO_COPY(UISlider)
     // If step is -1, it will be calculated as (max - min) / 100
     UISlider(const char *name, float value = 128.0f, float min = 1,
-             float max = 255, float step = -1.f)
-        : mImpl(name, value, min, max, step), mListener(this) {}
+             float max = 255, float step = -1.f);
     float value() const { return mImpl.value(); }
     float value_normalized() const {
         float min = mImpl.getMin();
         float max = mImpl.getMax();
-        if (ALMOST_EQUAL(max, min, 0.0001f)) {
+        if (FL_ALMOST_EQUAL(max, min, 0.0001f)) {
             return 0;
         }
         return (value() - min) / (max - min);
@@ -77,7 +76,7 @@ class UISlider : public UIElement {
         mImpl.setValue(static_cast<float>(value));
         return *this;
     }
-    
+
     // Override setGroup to also update the implementation
     void setGroup(const fl::string& groupName) override { 
         UIElement::setGroup(groupName); 
@@ -98,7 +97,7 @@ class UISlider : public UIElement {
 
     struct Listener : public EngineEvents::Listener {
         Listener(UISlider *owner) : mOwner(owner) {
-            EngineEvents::addListener(this);
+            
         }
         ~Listener() {
             if (added) {
@@ -120,9 +119,9 @@ class UISlider : public UIElement {
     };
 
   private:
-    FunctionList<UISlider &> mCallbacks;
+    function_list<void(UISlider &)> mCallbacks;
     float mLastFrameValue = 0;
-    bool mLastFramevalueValid = false;
+    bool mLastFrameValueValid = false;
     Listener mListener;
 };
 
@@ -131,8 +130,8 @@ class UISlider : public UIElement {
 class UIButton : public UIElement {
   public:
     FL_NO_COPY(UIButton)
-    UIButton(const char *name) : mImpl(name), mListener(this) {}
-    ~UIButton() {}
+    UIButton(const char *name);
+    ~UIButton();
     bool isPressed() const {
         if (mImpl.isPressed()) {
             return true;
@@ -187,6 +186,18 @@ class UIButton : public UIElement {
         return id;
     }
 
+    int onPressed(function<void()> callback) {
+        int id = mPressCallbacks.add(callback);
+        mListener.addToEngineEventsOnce();
+        return id;
+    }
+
+    int onReleased(function<void()> callback) {
+        int id = mReleaseCallbacks.add(callback);
+        mListener.addToEngineEventsOnce();
+        return id;
+    }
+
     void removeCallback(int id) { mCallbacks.remove(id); }
     void clearCallbacks() { mCallbacks.clear(); }
 
@@ -195,7 +206,6 @@ class UIButton : public UIElement {
 
     struct Listener : public EngineEvents::Listener {
         Listener(UIButton *owner) : mOwner(owner) {
-            EngineEvents::addListener(this);
         }
         ~Listener() {
             if (added) {
@@ -215,10 +225,13 @@ class UIButton : public UIElement {
         UIButton *mOwner;
         bool added = false;
         bool mClickedLastFrame = false;
+        bool mPressedLastFrame = false;
     };
 
   private:
-    FunctionList<UIButton &> mCallbacks;
+    function_list<void(UIButton &)> mCallbacks;
+    function_list<void()> mPressCallbacks;
+    function_list<void()> mReleaseCallbacks;
     Listener mListener;
     fl::shared_ptr<Button> mRealButton;
 };
@@ -226,9 +239,8 @@ class UIButton : public UIElement {
 class UICheckbox : public UIElement {
   public:
     FL_NO_COPY(UICheckbox);
-    UICheckbox(const char *name, bool value = false)
-        : mImpl(name, value), mListener(this) {}
-    ~UICheckbox() {}
+    UICheckbox(const char *name, bool value = false);
+    ~UICheckbox();
 
     operator bool() const { return value(); }
     explicit operator int() const { return static_cast<int>(value()); }
@@ -257,7 +269,7 @@ class UICheckbox : public UIElement {
 
     struct Listener : public EngineEvents::Listener {
         Listener(UICheckbox *owner) : mOwner(owner) {
-            EngineEvents::addListener(this);
+            // Don't register in constructor - prevents callbacks before owner is fully initialized
         }
         ~Listener() {
             if (added) {
@@ -279,7 +291,7 @@ class UICheckbox : public UIElement {
     };
 
   private:
-    FunctionList<UICheckbox &> mCallbacks;
+    function_list<void(UICheckbox &)> mCallbacks;
     bool mLastFrameValue = false;
     bool mLastFrameValueValid = false;
     Listener mListener;
@@ -289,9 +301,8 @@ class UINumberField : public UIElement {
   public:
     FL_NO_COPY(UINumberField);
     UINumberField(const char *name, double value, double min = 0,
-                  double max = 100)
-        : mImpl(name, value, min, max), mListener(this) {}
-    ~UINumberField() {}
+                  double max = 100);
+    ~UINumberField();
     double value() const { return mImpl.value(); }
     void setValue(double value) { mImpl.setValue(value); }
     operator double() const { return mImpl.value(); }
@@ -304,7 +315,7 @@ class UINumberField : public UIElement {
         setValue(static_cast<double>(value));
         return *this;
     }
-    
+
     // Override setGroup to also update the implementation
     void setGroup(const fl::string& groupName) override { 
         UIElement::setGroup(groupName); 
@@ -325,7 +336,7 @@ class UINumberField : public UIElement {
   private:
     struct Listener : public EngineEvents::Listener {
         Listener(UINumberField *owner) : mOwner(owner) {
-            EngineEvents::addListener(this);
+            // Don't register in constructor - prevents callbacks before owner is fully initialized
         }
         ~Listener() {
             if (added) {
@@ -349,18 +360,14 @@ class UINumberField : public UIElement {
     Listener mListener;
     double mLastFrameValue = 0;
     bool mLastFrameValueValid = false;
-    FunctionList<UINumberField &> mCallbacks;
+    function_list<void(UINumberField &)> mCallbacks;
 };
 
 class UITitle : public UIElement {
   public:
     FL_NO_COPY(UITitle);
-#if FASTLED_USE_JSON_UI
-    UITitle(const char *name) : mImpl(fl::string(name), fl::string(name)) {}
-#else
-    UITitle(const char *name) : mImpl(name) {}
-#endif
-    ~UITitle() {}
+    UITitle(const char *name);
+    ~UITitle();
     
     // Override setGroup to also update the implementation
     void setGroup(const fl::string& groupName) override { 
@@ -376,8 +383,8 @@ class UITitle : public UIElement {
 class UIDescription : public UIElement {
   public:
     FL_NO_COPY(UIDescription);
-    UIDescription(const char *name) : mImpl(name) {}
-    ~UIDescription() {}
+    UIDescription(const char *name);
+    ~UIDescription();
     
     // Override setGroup to also update the implementation
     void setGroup(const fl::string& groupName) override { 
@@ -393,8 +400,8 @@ class UIDescription : public UIElement {
 class UIHelp : public UIElement {
   public:
     FL_NO_COPY(UIHelp);
-    UIHelp(const char *markdownContent) : mImpl(markdownContent) {}
-    ~UIHelp() {}
+    UIHelp(const char *markdownContent);
+    ~UIHelp();
     
     // Override setGroup to also update the implementation
     void setGroup(const fl::string& groupName) override { 
@@ -413,8 +420,9 @@ class UIHelp : public UIElement {
 class UIAudio : public UIElement {
   public:
     FL_NO_COPY(UIAudio)
-    UIAudio(const char *name) : mImpl(name) {}
-    ~UIAudio() {}
+    UIAudio(const char *name);
+    UIAudio(const char *name, const fl::AudioConfig& config);
+    ~UIAudio();
     AudioSample next() { return mImpl.next(); }
     bool hasNext() { return mImpl.hasNext(); }
     
@@ -436,14 +444,12 @@ class UIDropdown : public UIElement {
     
 
     // Constructor with fl::span<fl::string> for arrays and containers.
-    UIDropdown(const char *name, fl::span<fl::string> options)
-        : mImpl(fl::string(name), options), mListener(this) {}
+    UIDropdown(const char *name, fl::span<fl::string> options);
 
     // Constructor with initializer_list
-    UIDropdown(const char *name, fl::initializer_list<fl::string> options)
-        : mImpl(name, options), mListener(this) {}
+    UIDropdown(const char *name, fl::initializer_list<fl::string> options);
 
-    ~UIDropdown() {}
+    ~UIDropdown();
     
     fl::string value() const { return mImpl.value(); }
     int as_int() const { return mImpl.value_int(); }
@@ -495,7 +501,7 @@ class UIDropdown : public UIElement {
 
     struct Listener : public EngineEvents::Listener {
         Listener(UIDropdown *owner) : mOwner(owner) {
-            EngineEvents::addListener(this);
+            // Don't register in constructor - prevents callbacks before owner is fully initialized
         }
         ~Listener() {
             if (added) {
@@ -517,29 +523,29 @@ class UIDropdown : public UIElement {
     };
 
   private:
-    FunctionList<UIDropdown &> mCallbacks;
+    function_list<void(UIDropdown &)> mCallbacks;
     int mLastFrameValue = -1;
     bool mLastFrameValueValid = false;
+    fl::shared_ptr<Button> mNextButton;  // Must be before mListener to ensure proper initialization order
     Listener mListener;
-    fl::shared_ptr<Button> mNextButton;
 };
 
 class UIGroup {
   public:
     FL_NO_COPY(UIGroup);
-    
+
     // Constructor takes fl::string as the only parameter for grouping name
-    UIGroup(const fl::string& groupName) : mImpl(groupName.c_str()) {}
-    
+    UIGroup(const fl::string& groupName);
+
     // Variadic template constructor: first argument is group name, remaining are UI elements
     template<typename... UIElements>
-    UIGroup(const fl::string& groupName, UIElements&... elements) 
+    UIGroup(const fl::string& groupName, UIElements&... elements)
         : mImpl(groupName.c_str()) {
         // Add all UI elements to this group
         add(elements...);
     }
-    
-    ~UIGroup() {}
+
+    ~UIGroup();
     
     // Get the group name
     fl::string name() const { return mImpl.name(); }

@@ -1,7 +1,9 @@
+// ok no namespace fl
 #ifndef __FASTPIN_ARM_NRF51_H
 #define __FASTPIN_ARM_NRF51_H
 
 #include "fl/force_inline.h"
+#include "fl/fastpin_base.h"
 
 #if defined(NRF51)
 /// Template definition for teensy 3.0 style ARM pins, providing direct access to the various GPIO registers.  Note that this
@@ -71,7 +73,7 @@ typedef struct {                                    /*!< GPIO Structure         
 #define FL_NRF_GPIO_BASE                   0x50000504UL
 #define FL_NRF_GPIO                        ((FL_NRF_GPIO_Type           *) FL_NRF_GPIO_BASE)
 
-template<uint8_t PIN, uint32_t _MASK> class _ARMPIN {
+template<uint8_t PIN, uint32_t _MASK> class _ARMPIN : public ValidPinBase {
 public:
     typedef volatile uint32_t * port_ptr_t;
     typedef uint32_t port_t;

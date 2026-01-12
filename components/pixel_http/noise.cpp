@@ -1,16 +1,21 @@
 /// @file noise.cpp
 /// Functions to generate and fill arrays with noise.
 
-#include <string.h>
-#include "fl/array.h"
+#if defined(__AVR__)
+#include "platforms/avr/is_avr.h"
+#endif
+
+#include <string.h>  // ok include
+#include "fl/stl/array.h"
 
 
 /// Disables pragma messages and warnings
 #define FASTLED_INTERNAL
-#include "FastLED.h"
+#include "fl/fastled.h"
 
 
-#include "fl/memfill.h"
+#include "fl/stl/cstring.h"
+#include "fl/map_range.h"
 // Compiler throws a warning about stack usage possibly being unbounded even
 // though bounds are checked, silence that so users don't see it
 #pragma GCC diagnostic push
@@ -25,7 +30,6 @@
 /// Reads a single byte from the p array
 #define NOISE_P(x) FL_PGM_READ_BYTE_NEAR(noise_detail::p + x)
 
-FASTLED_NAMESPACE_BEGIN
 
 namespace noise_detail {
 
@@ -56,7 +60,7 @@ FL_PROGMEM static uint8_t const p[] = {
 #define AVG15(U,V) (((U)+(V)) >> 1)
 #else
 // See if we should use the inlined avg15 for AVR with MUL instruction
-#if defined(__AVR__) && (LIB8_ATTINY == 0)
+#if defined(__AVR__) && !defined(FL_IS_AVR_ATTINY)
 #define AVG15(U,V) (noise_detail::avg15_inline_avr_mul((U),(V)))
 // inlined copy of avg15 for AVR with MUL instruction; cloned from math8.h
 // Forcing this inline in the 3-D 16bit noise produces a 12% speedup overall,
@@ -78,7 +82,7 @@ static int16_t inline __attribute__((always_inline))  avg15_inline_avr_mul( int1
     return i;
 }
 #else
-#define AVG15(U,V) (avg15((U),(V)))
+#define AVG15(U,V) (fl::avg15((U),(V)))
 #endif
 #endif
 
@@ -189,23 +193,23 @@ static int8_t  inline __attribute__((always_inline)) grad8(uint8_t hash, int8_t 
     // Uses proper 12 edge vectors of a cube for maximum range coverage
     
     switch(hash & 0xF) {
-        case  0: return avg7( x,  y);  // (1,1,0)
-        case  1: return avg7(-x,  y);  // (-1,1,0)
-        case  2: return avg7( x, -y);  // (1,-1,0)
-        case  3: return avg7(-x, -y);  // (-1,-1,0)
-        case  4: return avg7( x,  z);  // (1,0,1)
-        case  5: return avg7(-x,  z);  // (-1,0,1)
-        case  6: return avg7( x, -z);  // (1,0,-1)
-        case  7: return avg7(-x, -z);  // (-1,0,-1)
-        case  8: return avg7( y,  z);  // (0,1,1)
-        case  9: return avg7(-y,  z);  // (0,-1,1)
-        case 10: return avg7( y, -z);  // (0,1,-1)
-        case 11: return avg7(-y, -z);  // (0,-1,-1)
+        case  0: return fl::avg7( x,  y);  // (1,1,0)
+        case  1: return fl::avg7(-x,  y);  // (-1,1,0)
+        case  2: return fl::avg7( x, -y);  // (1,-1,0)
+        case  3: return fl::avg7(-x, -y);  // (-1,-1,0)
+        case  4: return fl::avg7( x,  z);  // (1,0,1)
+        case  5: return fl::avg7(-x,  z);  // (-1,0,1)
+        case  6: return fl::avg7( x, -z);  // (1,0,-1)
+        case  7: return fl::avg7(-x, -z);  // (-1,0,-1)
+        case  8: return fl::avg7( y,  z);  // (0,1,1)
+        case  9: return fl::avg7(-y,  z);  // (0,-1,1)
+        case 10: return fl::avg7( y, -z);  // (0,1,-1)
+        case 11: return fl::avg7(-y, -z);  // (0,-1,-1)
         // Repeat first 4 for hash values 12-15 (proper wrap-around)
-        case 12: return avg7( x,  y);  // (1,1,0)
-        case 13: return avg7(-x,  y);  // (-1,1,0)
-        case 14: return avg7( x, -y);  // (1,-1,0)
-        case 15: return avg7(-x, -y);  // (-1,-1,0)
+        case 12: return fl::avg7( x,  y);  // (1,1,0)
+        case 13: return fl::avg7(-x,  y);  // (-1,1,0)
+        case 14: return fl::avg7( x, -y);  // (1,-1,0)
+        case 15: return fl::avg7(-x, -y);  // (-1,-1,0)
     }
     return 0; // Should never reach here
 }
@@ -226,7 +230,7 @@ static int8_t inline __attribute__((always_inline)) grad8(uint8_t hash, int8_t x
     if(hash&1) { u = -u; }
     if(hash&2) { v = -v; }
 
-    return avg7(u,v);
+    return fl::avg7(u,v);
 }
 
 static int8_t inline __attribute__((always_inline)) grad8(uint8_t hash, int8_t x)
@@ -249,7 +253,7 @@ static int8_t inline __attribute__((always_inline)) grad8(uint8_t hash, int8_t x
     if(hash&1) { u = -u; }
     if(hash&2) { v = -v; }
 
-    return avg7(u,v);
+    return fl::avg7(u,v);
 }
 
 
@@ -571,7 +575,7 @@ uint8_t inoise8(uint16_t x, uint16_t y, uint16_t z) {
     //return scale8(76+(inoise8_raw(x,y,z)),215)<<1;
     int8_t n = inoise8_raw( x, y, z);  // -64..+64
     n+= 64;                            //   0..128
-    uint8_t ans = qadd8( n, n);        //   0..255
+    uint8_t ans = fl::qadd8( n, n);        //   0..255
     return ans;
 }
 
@@ -615,7 +619,7 @@ uint8_t inoise8(uint16_t x, uint16_t y) {
   //return scale8(69+inoise8_raw(x,y),237)<<1;
     int8_t n = inoise8_raw( x, y);  // -64..+64
     n+= 64;                         //   0..128
-    uint8_t ans = qadd8( n, n);     //   0..255
+    uint8_t ans = fl::qadd8( n, n);     //   0..255
     return ans;
 }
 
@@ -648,7 +652,7 @@ int8_t inoise8_raw(uint16_t x)
 uint8_t inoise8(uint16_t x) {
     int8_t n = inoise8_raw(x);    //-64..+64
     n += 64;                      // 0..128
-    uint8_t ans = qadd8(n,n);     // 0..255
+    uint8_t ans = fl::qadd8(n,n);     // 0..255
     return ans;
 }
 
@@ -656,14 +660,14 @@ uint8_t inoise8(uint16_t x) {
 // struct q44 {
 //   uint8_t i:4;
 //   uint8_t f:4;
-//   q44(uint8_t _i, uint8_t _f) {i=_i; f=_f; }
+//   fl::q44(uint8_t _i, uint8_t _f) {i=_i; f=_f; }
 // };
 
-// uint32_t mul44(uint32_t v, q44 mulby44) {
+// uint32_t mul44(uint32_t v, fl::q44 mulby44) {
 //     return (v *mulby44.i)  + ((v * mulby44.f) >> 4);
 // }
 //
-// uint16_t mul44_16(uint16_t v, q44 mulby44) {
+// uint16_t mul44_16(uint16_t v, fl::q44 mulby44) {
 //     return (v *mulby44.i)  + ((v * mulby44.f) >> 4);
 // }
 
@@ -672,7 +676,7 @@ void fill_raw_noise8(uint8_t *pData, uint8_t num_points, uint8_t octaves, uint16
   uint32_t scx = scale;
   for(int o = 0; o < octaves; ++o) {
     for(int i = 0,xx=_xx; i < num_points; ++i, xx+=scx) {
-          pData[i] = qadd8(pData[i],inoise8(xx,time)>>o);
+          pData[i] = fl::qadd8(pData[i],inoise8(xx,time)>>o);
     }
 
     _xx <<= 1;
@@ -710,7 +714,7 @@ void fill_raw_noise16into8(uint8_t *pData, uint8_t num_points, uint8_t octaves, 
 /// @param scaley the scale (distance) between y points when filling in noise
 /// @param time the time position for the noise field
 /// @todo Why isn't this declared in the header (noise.h)?
-void fill_raw_2dnoise8(uint8_t *pData, int width, int height, uint8_t octaves, q44 freq44, fract8 amplitude, int skip, uint16_t x, int16_t scalex, uint16_t y, int16_t scaley, uint16_t time) {
+void fill_raw_2dnoise8(uint8_t *pData, int width, int height, uint8_t octaves, fl::q44 freq44, fract8 amplitude, int skip, uint16_t x, int16_t scalex, uint16_t y, int16_t scaley, uint16_t time) {
   if(octaves > 1) {
     fill_raw_2dnoise8(pData, width, height, octaves-1, freq44, amplitude, skip+1, x*freq44, freq44 * scalex, y*freq44, freq44 * scaley, time);
   } else {
@@ -745,10 +749,10 @@ void fill_raw_2dnoise8(uint8_t *pData, int width, int height, uint8_t octaves, q
 }
 
 void fill_raw_2dnoise8(uint8_t *pData, int width, int height, uint8_t octaves, uint16_t x, int scalex, uint16_t y, int scaley, uint16_t time) {
-  fill_raw_2dnoise8(pData, width, height, octaves, q44(2,0), 128, 1, x, scalex, y, scaley, time);
+  fill_raw_2dnoise8(pData, width, height, octaves, fl::q44(2,0), 128, 1, x, scalex, y, scaley, time);
 }
 
-void fill_raw_2dnoise16(uint16_t *pData, int width, int height, uint8_t octaves, q88 freq88, fract16 amplitude, int skip, uint32_t x, int32_t scalex, uint32_t y, int32_t scaley, uint32_t time) {
+void fill_raw_2dnoise16(uint16_t *pData, int width, int height, uint8_t octaves, fl::q88 freq88, fract16 amplitude, int skip, uint32_t x, int32_t scalex, uint32_t y, int32_t scaley, uint32_t time) {
   if(octaves > 1) {
     fill_raw_2dnoise16(pData, width, height, octaves-1, freq88, amplitude, skip, x *freq88 , scalex *freq88, y * freq88, scaley * freq88, time);
   } else {
@@ -786,7 +790,7 @@ int32_t nmin=11111110;
 /// @todo Remove?
 int32_t nmax=0;
 
-void fill_raw_2dnoise16into8(uint8_t *pData, int width, int height, uint8_t octaves, q44 freq44, fract8 amplitude, int skip, uint32_t x, int32_t scalex, uint32_t y, int32_t scaley, uint32_t time) {
+void fill_raw_2dnoise16into8(uint8_t *pData, int width, int height, uint8_t octaves, fl::q44 freq44, fract8 amplitude, int skip, uint32_t x, int32_t scalex, uint32_t y, int32_t scaley, uint32_t time) {
   if(octaves > 1) {
     fill_raw_2dnoise16into8(pData, width, height, octaves-1, freq44, amplitude, skip+1, x*freq44, scalex *freq44, y*freq44, scaley * freq44, time);
   } else {
@@ -806,7 +810,7 @@ void fill_raw_2dnoise16into8(uint8_t *pData, int width, int height, uint8_t octa
       noise_base = (0x8000 & noise_base) ? noise_base - (32767) : 32767 - noise_base;
       noise_base = scale8(noise_base>>7,amplitude);
       if(skip==1) {
-        pRow[j] = qadd8(scale8(pRow[j],invamp),noise_base);
+        pRow[j] = fl::qadd8(scale8(pRow[j],invamp),noise_base);
       } else {
         for(int ii = i; ii<(i+skip) && ii<height; ++ii) {
           uint8_t *pRow = pData + (ii*width);
@@ -820,7 +824,7 @@ void fill_raw_2dnoise16into8(uint8_t *pData, int width, int height, uint8_t octa
 }
 
 void fill_raw_2dnoise16into8(uint8_t *pData, int width, int height, uint8_t octaves, uint32_t x, int scalex, uint32_t y, int scaley, uint32_t time) {
-  fill_raw_2dnoise16into8(pData, width, height, octaves, q44(2,0), 171, 1, x, scalex, y, scaley, time);
+  fill_raw_2dnoise16into8(pData, width, height, octaves, fl::q44(2,0), 171, 1, x, scalex, y, scaley, time);
 }
 
 void fill_noise8(CRGB *leds, int num_leds,
@@ -838,8 +842,8 @@ void fill_noise8(CRGB *leds, int num_leds,
         FASTLED_STACK_ARRAY(uint8_t, V, LedsPer);
         FASTLED_STACK_ARRAY(uint8_t, H, LedsPer);
 
-        fl::memfill(V, 0, LedsPer);
-        fl::memfill(H, 0, LedsPer);
+        fl::memset(V, 0, LedsPer);
+        fl::memset(H, 0, LedsPer);
 
         fill_raw_noise8(V, LedsPer, octaves, x, scale, time);
         fill_raw_noise8(H, LedsPer, hue_octaves, hue_x, hue_scale, time);
@@ -864,8 +868,8 @@ void fill_noise16(CRGB *leds, int num_leds,
         FASTLED_STACK_ARRAY(uint8_t, V, LedsPer);
         FASTLED_STACK_ARRAY(uint8_t, H, LedsPer);
 
-        fl::memfill(V, 0, LedsPer);
-        fl::memfill(H, 0, LedsPer);
+        fl::memset(V, 0, LedsPer);
+        fl::memset(H, 0, LedsPer);
 
         fill_raw_noise16into8(V, LedsPer, octaves, x, scale, time);
         fill_raw_noise8(H, LedsPer, hue_octaves, hue_x, hue_scale, time);
@@ -884,8 +888,8 @@ void fill_2dnoise8(CRGB *leds, int width, int height, bool serpentine,
   FASTLED_STACK_ARRAY(uint8_t, V, array_size);
   FASTLED_STACK_ARRAY(uint8_t, H, array_size);
 
-  fl::memfill(V,0,height*width);
-  fl::memfill(H,0,height*width);
+  fl::memset(V,0,height*width);
+  fl::memset(H,0,height*width);
 
   fill_raw_2dnoise8((uint8_t*)V,width,height,octaves,x,xscale,y,yscale,time);
   fill_raw_2dnoise8((uint8_t*)H,width,height,hue_octaves,hue_x,hue_xscale,hue_y,hue_yscale,hue_time);
@@ -903,11 +907,9 @@ void fill_2dnoise8(CRGB *leds, int width, int height, bool serpentine,
       }
 
       if(blend) {
-        // Safer blending to avoid potential undefined behavior
-        CRGB temp = leds[wb+pos];
-        temp.nscale8(128); // Scale by 50%
-        led.nscale8(128);
-        leds[wb+pos] = temp + led;
+        // Safer blending using shift-and-add to avoid ambiguous operator+
+        leds[wb+pos] >>= 1;
+        leds[wb+pos] += (led >>= 1);
       } else {
         leds[wb+pos] = led;
       }
@@ -923,10 +925,10 @@ void fill_2dnoise16(CRGB *leds, int width, int height, bool serpentine,
   FASTLED_STACK_ARRAY(uint8_t, V, height*width);
   FASTLED_STACK_ARRAY(uint8_t, H, height*width);
   
-  fl::memfill(V,0,height*width);
-  fl::memfill(H,0,height*width);
+  fl::memset(V,0,height*width);
+  fl::memset(H,0,height*width);
 
-  fill_raw_2dnoise16into8((uint8_t*)V,width,height,octaves,q44(2,0),171,1,x,xscale,y,yscale,time);
+  fill_raw_2dnoise16into8((uint8_t*)V,width,height,octaves,fl::q44(2,0),171,1,x,xscale,y,yscale,time);
   // fill_raw_2dnoise16into8((uint8_t*)V,width,height,octaves,x,xscale,y,yscale,time);
   // fill_raw_2dnoise8((uint8_t*)V,width,height,hue_octaves,x,xscale,y,yscale,time);
   fill_raw_2dnoise8((uint8_t*)H,width,height,hue_octaves,hue_x,hue_xscale,hue_y,hue_yscale,hue_time);
@@ -954,7 +956,5 @@ void fill_2dnoise16(CRGB *leds, int width, int height, bool serpentine,
     }
   }
 }
-
-FASTLED_NAMESPACE_END
 
 #pragma GCC diagnostic pop

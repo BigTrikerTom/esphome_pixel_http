@@ -30,12 +30,12 @@
 #if FASTLED_USE_NEOPIXEL_BUS
 
 #include "NeoPixelBus.h"
-#include "fl/namespace.h"
-#include "fl/memory.h"
+#include "fl/stl/memory.h"
 #include "controller.h"
 #include "pixel_controller.h"
 #include "color.h"
 #include "fastled_config.h"
+#include "fl/chipsets/timing_traits.h"
 
 namespace fl {
 
@@ -106,7 +106,7 @@ struct NeoPixelBusColorFeature<GBR> {
 /// @tparam XTRA0 extra parameter (ignored, for template compatibility)
 /// @tparam FLIP flip parameter (ignored, for template compatibility)
 /// @tparam WAIT_TIME wait time parameter (ignored, for template compatibility)
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, 
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = GRB,
           int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 0>
 class NeoPixelBusLikeClocklessT : public CPixelLEDController<RGB_ORDER> {
 public:
@@ -227,7 +227,7 @@ protected:
     virtual void convertAndSetPixels(PixelController<RGB_ORDER> &pixels) {
         auto iterator = pixels.as_iterator(RgbwInvalid());
         for (int i = 0; iterator.has(1); ++i) {
-            fl::u8 r, g, b;
+            u8 r, g, b;
             iterator.loadAndScaleRGB(&r, &g, &b);
             
             // Convert to NeoPixelBus color type
@@ -269,9 +269,9 @@ protected:
 /// @tparam FLIP flip parameter (ignored, for template compatibility)
 /// @tparam WAIT_TIME wait time parameter (ignored, for template compatibility)
 /// @see https://github.com/Makuna/NeoPixelBus
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, 
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = GRB,
           int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 0>
-class ClocklessController : public NeoPixelBusLikeClocklessT<DATA_PIN, T1, T2, T3, RGB_ORDER, XTRA0, FLIP, WAIT_TIME> {
+class ClocklessController : public NeoPixelBusLikeClocklessT<DATA_PIN, TIMING, RGB_ORDER, XTRA0, FLIP, WAIT_TIME> {
 public:
     /// Constructor - creates uninitialized controller
     ClocklessController() = default;
@@ -293,7 +293,7 @@ public:
 /// @tparam T2 timing parameter (ignored, for template compatibility) 
 /// @tparam T3 timing parameter (ignored, for template compatibility)
 /// @tparam RGB_ORDER the RGB ordering for the LEDs
-template <int DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, 
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = GRB,
           int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 0>
 class NeoPixelBusRGBWController : public CPixelLEDController<RGB_ORDER> {
 public:
@@ -385,11 +385,11 @@ protected:
     virtual void convertAndSetPixels(PixelController<RGB_ORDER> &pixels) {
         auto iterator = pixels.as_iterator(RgbwInvalid());
         for (int i = 0; iterator.has(1); ++i) {
-            fl::u8 r, g, b;
+            u8 r, g, b;
             iterator.loadAndScaleRGB(&r, &g, &b);
             
             // Extract white component (simple algorithm - minimum of RGB)
-            fl::u8 white = fl::min(r, fl::min(g, b));
+            u8 white = fl::min(r, fl::min(g, b));
             r -= white; 
             g -= white; 
             b -= white;

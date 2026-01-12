@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "fl/assert.h"
+#include "fl/stl/assert.h"
 #include "fl/warn.h"
 #include "fl/xypath.h"
 #include "fl/xypath_renderer.h"

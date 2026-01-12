@@ -2,13 +2,9 @@
 /// Disables pragma messages and warnings
 #define FASTLED_INTERNAL
 
-#include "FastLED.h"
+#include "fl/fastled.h"
 #include "colorutils.h"
 #include "colorpalettes.h"
-#include "fl/namespace.h"
-
-FASTLED_USING_NAMESPACE
-
 /// @file colorpalettes.cpp
 /// Definitions for the predefined color palettes supplied by FastLED.
 /// @note The documentation is in the source file instead of the header

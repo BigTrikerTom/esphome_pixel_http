@@ -1,7 +1,7 @@
 #include "fl/corkscrew.h"
-#include "fl/algorithm.h"
-#include "fl/assert.h"
-#include "fl/math.h"
+#include "fl/stl/algorithm.h"
+#include "fl/stl/assert.h"
+#include "fl/stl/math.h"
 #include "fl/splat.h"
 #include "fl/warn.h"
 #include "fl/tile2x2.h"
@@ -11,7 +11,7 @@
 #include "fl/leds.h"
 #include "fl/grid.h"
 #include "fl/screenmap.h"
-#include "fl/memory.h"
+#include "fl/stl/shared_ptr.h"  // For shared_ptr
 #include "fl/int.h"
 
 
@@ -113,7 +113,7 @@ vec2f Corkscrew::at_no_wrap(fl::u16 i) const {
     // }
 
     // now wrap the x-position
-    //position.x = fmodf(position.x, static_cast<float>(mState.width));
+    //position.x = fl::fmodf(position.x, static_cast<float>(mState.width));
     
     return position;
 }
@@ -123,7 +123,7 @@ vec2f Corkscrew::at_exact(fl::u16 i) const {
     vec2f position = at_no_wrap(i);
     
     // Apply cylindrical wrapping to the x-position (like at_wrap does)
-    position.x = fmodf(position.x, static_cast<float>(mWidth));
+    position.x = fl::fmodf(position.x, static_cast<float>(mWidth));
     
     return position;
 }
@@ -139,9 +139,9 @@ Tile2x2_u8 Corkscrew::at_splat_extrapolate(float i) const {
     }
     
     // Use the splat function to convert the vec2f to a Tile2x2_u8
-    float i_floor = floorf(i);
-    float i_ceil = ceilf(i);
-    if (ALMOST_EQUAL_FLOAT(i_floor, i_ceil)) {
+    float i_floor = fl::floorf(i);
+    float i_ceil = fl::ceilf(i);
+    if (FL_ALMOST_EQUAL_FLOAT(i_floor, i_ceil)) {
         // If the index is the same, just return the splat of that index
         vec2f position = at_no_wrap(static_cast<fl::u16>(i_floor));
         return splat(position);
@@ -186,7 +186,7 @@ Tile2x2_u8_wrap Corkscrew::calculateTileAtWrap(float i) const {
             // is mapped to the correct position on the cylinder.
             vec2<u16> pos = origin + vec2<u16>(x, y);
             // now wrap the x-position
-            pos.x = fmodf(pos.x, static_cast<float>(mWidth));
+            pos.x = fl::fmodf(pos.x, static_cast<float>(mWidth));
             data[x][y] = {pos, tile.at(x, y)};
         }
     }
@@ -271,8 +271,8 @@ void Corkscrew::readFrom(const fl::Grid<CRGB>& source_grid, bool use_multi_sampl
                       static_cast<fl::i16>(rect_pos.y + 0.5f));
         
         // Clamp coordinates to grid bounds
-        coord.x = MAX(0, MIN(coord.x, static_cast<fl::i16>(source_grid.width()) - 1));
-        coord.y = MAX(0, MIN(coord.y, static_cast<fl::i16>(source_grid.height()) - 1));
+        coord.x = FL_MAX(0, FL_MIN(coord.x, static_cast<fl::i16>(source_grid.width()) - 1));
+        coord.y = FL_MAX(0, FL_MIN(coord.y, static_cast<fl::i16>(source_grid.height()) - 1));
         
         // Sample from the source fl::Grid using its at() method
         CRGB sampled_color = source_grid.at(coord.x, coord.y);
@@ -381,8 +381,8 @@ void Corkscrew::draw(bool use_multi_sampling) {
                           static_cast<fl::i16>(rect_pos.y + 0.5f));
             
             // Clamp coordinates to surface bounds
-            coord.x = MAX(0, MIN(coord.x, static_cast<fl::i16>(source_surface->width()) - 1));
-            coord.y = MAX(0, MIN(coord.y, static_cast<fl::i16>(source_surface->height()) - 1));
+            coord.x = FL_MAX(0, FL_MIN(coord.x, static_cast<fl::i16>(source_surface->width()) - 1));
+            coord.y = FL_MAX(0, FL_MIN(coord.y, static_cast<fl::i16>(source_surface->height()) - 1));
             
             // Sample from the source surface
             CRGB sampled_color = source_surface->at(coord.x, coord.y);
@@ -450,7 +450,7 @@ void Corkscrew::readFromMulti(const fl::Grid<CRGB>& source_grid) const {
 
 // Iterator implementation
 vec2f Corkscrew::iterator::operator*() const {
-    return corkscrew_->at_no_wrap(static_cast<fl::u16>(position_));
+    return mCorkscrew->at_no_wrap(static_cast<fl::u16>(mPosition));
 }
 
 fl::ScreenMap Corkscrew::toScreenMap(float diameter) const {

@@ -9,22 +9,23 @@
 #define ARDUINO 1
 #endif
 
+// FastLED headers only - NO stdlib headers
 #include "fl/str.h"
-#include <algorithm>
-#include <random>
-#include "fl/stdint.h"
-#include <stdio.h>
-#include <string>
-#include "fl/ostream.h"
-
-#include "fl/namespace.h"
-// Arduino timing functions - provided by time_stub.h
+#include "fl/stl/stdint.h"
+#include "fl/stl/ostream.h"
+#include "fl/stl/stdio.h"
 #include "time_stub.h"
 #include "fl/math_macros.h"
-#include "fl/math.h"
+#include "fl/stl/math.h"
 
-FASTLED_USING_NAMESPACE
+// Math functions from fl:: namespace
+// On stub platform, standard library <cmath> provides math functions in global namespace
+// through included headers like <mutex>. No need to re-export fl:: math functions here.
+// Arduino sketches can use either the stdlib versions or explicitly use fl:: prefix.
 
+#ifndef FASTLED_NO_ARDUINO_STUBS
+// Custom min/max to avoid <algorithm> include
+// Excluded when FASTLED_NO_ARDUINO_STUBS is defined (for compatibility with ArduinoFake, etc.)
 template <typename T>
 T min(T a, T b) {
     return a < b ? a : b;
@@ -33,21 +34,14 @@ template <typename T>
 T max(T a, T b) {
     return a > b ? a : b;
 }
+#endif // FASTLED_NO_ARDUINO_STUBS
 
 
 
 
 namespace fl {
 
-inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
-    const long run = in_max - in_min;
-    if (run == 0) {
-        return 0; // AVR returns -1, SAM returns 0
-    }
-    const long rise = out_max - out_min;
-    const long delta = x - in_min;
-    return (delta * rise) / run + out_min;
-}
+long map(long x, long in_min, long in_max, long out_min, long out_max);
 
 // constrain
 template <typename T> T constrain(T x, T a, T b) {
@@ -55,36 +49,26 @@ template <typename T> T constrain(T x, T a, T b) {
 }
 } // namespace fl
 
+#ifndef FASTLED_NO_ARDUINO_STUBS
+// Arduino stub functions - excluded when FASTLED_NO_ARDUINO_STUBS is defined
 using fl::constrain;
 using fl::map;
 
-inline long random(long min, long max) {
-    if (min == max) {
-        return min;
-    }
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    // Arduino random is exclusive of the max value, but
-    // std::uniform_int_distribution is inclusive. So we subtract 1 from the max
-    // value.
-    std::uniform_int_distribution<> dis(min, max - 1);
-    return dis(gen);
-}
+long random(long min, long max);
+long random(long max);
+int analogRead(int);
+void init();  // Arduino hardware initialization (stub: does nothing)
 
-inline int analogRead(int) { return random(0, 1023); }
-
-inline long random(long max) { return random(0, max); }
-
-// Arduino-compatible random() with no parameters - returns full range random long
-inline long random() { 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<long> dis;
-    return dis(gen);
-}
+// Test helper functions for analog value injection (stub platform only)
+void setAnalogValue(int pin, int value);  // Set analog value for specific pin
+int getAnalogValue(int pin);              // Get current analog value for pin
+void clearAnalogValues();                 // Reset all analog values to default (random)
+#endif // FASTLED_NO_ARDUINO_STUBS
 
 
 
+#ifndef FASTLED_NO_ARDUINO_STUBS
+// Analog pin definitions - excluded when FASTLED_NO_ARDUINO_STUBS is defined
 #ifndef A0
 #define A0 0
 #endif
@@ -132,89 +116,51 @@ inline long random() {
 #ifndef A11
 #define A11 11
 #endif
+#endif // FASTLED_NO_ARDUINO_STUBS
 
 
 
+#ifndef FASTLED_NO_ARDUINO_STUBS
+// Serial emulation and digital I/O - excluded when FASTLED_NO_ARDUINO_STUBS is defined
 struct SerialEmulation {
-    void begin(int) {}
+    void begin(int);
+
+    // Template methods must stay in header
     template <typename T> void print(T val) {
         fl::cout << val;
     }
     template <typename T> void println(T val) {
         fl::cout << val << fl::endl;
     }
-    
-    // Two-argument print overloads for formatting
-    void print(float _val, int digits) { 
-        // Clamp digits to reasonable range
-        digits = digits < 0 ? 0 : (digits > 9 ? 9 : digits);
-        double val = static_cast<double>(_val);
-        
-        // Use literal format strings to avoid linter warnings
-        switch(digits) {
-            case 0: printf("%.0f", val); break;
-            case 1: printf("%.1f", val); break;
-            case 2: printf("%.2f", val); break;
-            case 3: printf("%.3f", val); break;
-            case 4: printf("%.4f", val); break;
-            case 5: printf("%.5f", val); break;
-            case 6: printf("%.6f", val); break;
-            case 7: printf("%.7f", val); break;
-            case 8: printf("%.8f", val); break;
-            case 9: printf("%.9f", val); break;
-        }
+
+    // Two-argument print overloads for formatting - moved to .cpp
+    void print(float val, int digits);
+    void print(double val, int digits);
+    void print(int val, int base);
+    void print(unsigned int val, int base);
+
+    void println();
+
+    // Printf-style formatted output (variadic template implementation)
+    template<typename... Args>
+    void printf(const char* format, Args... args) {
+        fl::printf(format, args...);
     }
-    void print(double val, int digits) { 
-        // Clamp digits to reasonable range
-        digits = digits < 0 ? 0 : (digits > 9 ? 9 : digits);
-        
-        // Use literal format strings to avoid linter warnings
-        switch(digits) {
-            case 0: printf("%.0f", val); break;
-            case 1: printf("%.1f", val); break;
-            case 2: printf("%.2f", val); break;
-            case 3: printf("%.3f", val); break;
-            case 4: printf("%.4f", val); break;
-            case 5: printf("%.5f", val); break;
-            case 6: printf("%.6f", val); break;
-            case 7: printf("%.7f", val); break;
-            case 8: printf("%.8f", val); break;
-            case 9: printf("%.9f", val); break;
-        }
-    }
-    void print(int val, int base) {
-        if (base == 16) printf("%x", val);
-        else if (base == 8) printf("%o", val);
-        else if (base == 2) {
-            // Binary output
-            for (int i = 31; i >= 0; i--) {
-                printf("%d", (val >> i) & 1);
-            }
-        }
-        else printf("%d", val);
-    }
-    void print(unsigned int val, int base) {
-        if (base == 16) printf("%x", val);
-        else if (base == 8) printf("%o", val);
-        else if (base == 2) {
-            // Binary output
-            for (int i = 31; i >= 0; i--) {
-                printf("%d", (val >> i) & 1);
-            }
-        }
-        else printf("%u", val);
-    }
-    
-    void println() { printf("\n"); }
-    int available() { return 0; }
-    int read() { return 0; }
-    void write(uint8_t) {}
-    void write(const char *s) { printf("%s", s); }
-    void write(const uint8_t *s, size_t n) { fwrite(s, 1, n, stdout); }
-    void write(const char *s, size_t n) { fwrite(s, 1, n, stdout); }
-    void flush() {}
-    void end() {}
-    uint8_t peek() { return 0; }
+
+    int available();
+    int read();
+    fl::string readStringUntil(char terminator);
+    void write(uint8_t);
+    void write(const char *s);
+    void write(const uint8_t *s, size_t n);
+    void write(const char *s, size_t n);
+    void flush();
+    void end();
+    uint8_t peek();
+
+    // Support for Serial boolean checks (always returns true for stub platform)
+    explicit operator bool() const { return true; }
+    bool operator!() const { return false; }
 };
 
 #define LED_BUILTIN 13
@@ -224,10 +170,12 @@ struct SerialEmulation {
 #define OUTPUT 1
 #define INPUT_PULLUP 2
 
-inline void digitalWrite(int, int) {}
-inline void analogWrite(int, int) {}
-inline int digitalRead(int) { return LOW; }
-inline void pinMode(int, int) {}
+void digitalWrite(int, int);
+void analogWrite(int, int);
+void analogReference(int);
+int digitalRead(int);
+void pinMode(int, int);
+#endif // FASTLED_NO_ARDUINO_STUBS
 
 
 
@@ -246,6 +194,10 @@ inline void pinMode(int, int) {}
 #define FL_PGM_READ_PTR_NEAR(addr) (*(addr))
 typedef unsigned char byte;
 
+// Arduino String class compatibility - use fl::string as String
+typedef fl::string String;
+
+#ifndef FASTLED_NO_ARDUINO_STUBS
 // Define Serial instances for stub compilation
 extern SerialEmulation Serial;
 extern SerialEmulation Serial1;
@@ -254,3 +206,4 @@ extern SerialEmulation Serial3;
 
 typedef SerialEmulation HardwareSerial;
 typedef SerialEmulation SoftwareSerial;
+#endif // FASTLED_NO_ARDUINO_STUBS

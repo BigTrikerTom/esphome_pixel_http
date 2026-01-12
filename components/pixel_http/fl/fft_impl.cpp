@@ -7,24 +7,25 @@
 // #include "util.h"
 
 #ifndef FASTLED_INTERNAL
-#define FASTLED_INTERNAL 1
+#define FASTLED_INTERNAL
 #endif
 
-#include "FastLED.h"
+#include "fl/fastled.h"
 
 #include "third_party/cq_kernel/cq_kernel.h"
 #include "third_party/cq_kernel/kiss_fftr.h"
 
-#include "fl/array.h"
+#include "fl/alloca.h"
+#include "fl/stl/array.h"
 #include "fl/audio.h"
 #include "fl/fft.h"
 #include "fl/fft_impl.h"
 #include "fl/str.h"
 #include "fl/unused.h"
-#include "fl/vector.h"
+#include "fl/stl/vector.h"
 #include "fl/warn.h"
 
-#include "fl/memfill.h"
+#include "fl/stl/cstring.h"
 
 #define AUDIO_SAMPLE_RATE 44100
 #define SAMPLES 512
@@ -42,14 +43,14 @@ class FFTContext {
   public:
     FFTContext(int samples, int bands, float fmin, float fmax, int sample_rate)
         : m_fftr_cfg(nullptr), m_kernels(nullptr) {
-        fl::memfill(&m_cq_cfg, 0, sizeof(m_cq_cfg));
+        fl::memset(&m_cq_cfg, 0, sizeof(m_cq_cfg));
         m_cq_cfg.samples = samples;
         m_cq_cfg.bands = bands;
         m_cq_cfg.fmin = fmin;
         m_cq_cfg.fmax = fmax;
         m_cq_cfg.fs = sample_rate;
         m_cq_cfg.min_val = MIN_VAL;
-        m_fftr_cfg = kiss_fftr_alloc(samples, 0, NULL, NULL);
+        m_fftr_cfg = kiss_fftr_alloc(samples, 0, nullptr, nullptr);
         if (!m_fftr_cfg) {
             FASTLED_WARN("Failed to allocate FFTImpl context");
             return;
@@ -81,13 +82,21 @@ class FFTContext {
         const float maxf = m_cq_cfg.fmax;
         const float minf = m_cq_cfg.fmin;
         const float delta_f = (maxf - minf) / m_cq_cfg.bands;
+
         // begin transform
         for (int i = 0; i < m_cq_cfg.bands; ++i) {
+            // Q15 fixed-point values from kiss_fft: int16_t where 32768 = 1.0
+            // Widen to 32-bit to preserve fixed-point scaling during multiplication
             i32 real = cq[i].r;
             i32 imag = cq[i].i;
+            // Calculate magnitude - multiply as integers to preserve Q15 scaling
             float r2 = float(real * real);
             float i2 = float(imag * imag);
             float magnitude = sqrt(r2 + i2);
+
+            // Integer multiplication preserves the Q15 fixed-point scale.
+            // Test expectations have been updated to match this implementation.
+
             float magnitude_db = 20 * log10(magnitude);
             float f_start = minf + i * delta_f;
             float f_end = f_start + delta_f;

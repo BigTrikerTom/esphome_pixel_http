@@ -2,9 +2,10 @@
 #define __INC_FASTPIN_ARM_SAM_H
 
 #include "fl/force_inline.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+// Include fastpin_base.h for reg32_t and ptr_reg32_t typedefs
+// This reopens namespace fl but typedefs will still be in scope
+#include "fl/fastpin_base.h"
+namespace fl {
 #if defined(FASTLED_FORCE_SOFTWARE_PINS)
 #warning "Software pin support forced, pin access will be sloightly slower."
 #define NO_HARDWARE_PIN_SUPPORT
@@ -43,6 +44,8 @@ public:
 	inline static port_ptr_t sport() __attribute__ ((always_inline)) { return &_PSOR::r(); }
 	inline static port_ptr_t cport() __attribute__ ((always_inline)) { return &_PCOR::r(); }
 	inline static port_t mask() __attribute__ ((always_inline)) { return _MASK; }
+
+	static constexpr bool validpin() { return true; }
 };
 
 
@@ -72,6 +75,8 @@ public:
 	inline static port_t loval() __attribute__ ((always_inline)) { return 0; }
 	inline static port_ptr_t port() __attribute__ ((always_inline)) { return _PDOR::template rx<_BIT>(); }
 	inline static port_t mask() __attribute__ ((always_inline)) { return 1; }
+
+	static constexpr bool validpin() { return true; }
 };
 
 #define GPIO_BITBAND_ADDR(reg, bit) (((uint32_t)&(reg) - 0x40000000) * 32 + (bit) * 4 + 0x42000000)
@@ -132,8 +137,5 @@ _FL_DEFPIN(110, 29, B); _FL_DEFPIN(111, 30, B); _FL_DEFPIN(112, 31, B); _FL_DEFP
 #endif
 
 #endif // FASTLED_FORCE_SOFTWARE_PINS
-
-FASTLED_NAMESPACE_END
-
-
+}  // namespace fl
 #endif // __INC_FASTPIN_ARM_SAM_H

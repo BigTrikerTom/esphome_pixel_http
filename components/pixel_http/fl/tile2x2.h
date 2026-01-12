@@ -1,17 +1,14 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
 #include "fl/geometry.h"
-#include "fl/namespace.h"
-#include "fl/pair.h"
-#include "fl/span.h"
+#include "fl/stl/pair.h"
+#include "fl/stl/span.h"
 #include "fl/xymap.h"
-#include "fl/vector.h"
+#include "fl/stl/vector.h"
 
-FASTLED_NAMESPACE_BEGIN
-struct CRGB;
-FASTLED_NAMESPACE_END
+#include "fl/rgb8.h"
 
 namespace fl {
 

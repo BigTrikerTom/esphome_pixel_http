@@ -2,11 +2,11 @@
 #include "fl/fetch.h"  // Include for fl::response definition
 #include "fl/warn.h"
 #include "fl/str.h"
-#include "fl/function.h"
-#include "fl/hash_map.h"
-#include "fl/mutex.h"
+#include "fl/stl/function.h"
+#include "fl/stl/unordered_map.h"
+#include "fl/stl/mutex.h"
 #include "fl/singleton.h"
-#include "fl/optional.h"
+#include "fl/stl/optional.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -27,19 +27,19 @@ public:
     
     // Generate unique request ID
     uint32_t generateRequestId() {
-        fl::lock_guard<fl::mutex> lock(mCallbacksMutex);
+        fl::unique_lock<fl::mutex> lock(mCallbacksMutex);
         return mNextRequestId++;
     }
-    
+
     // Store callback for a request ID (using move semantics)
     void storeCallback(uint32_t request_id, FetchResponseCallback callback) {
-        fl::lock_guard<fl::mutex> lock(mCallbacksMutex);
+        fl::unique_lock<fl::mutex> lock(mCallbacksMutex);
         mPendingCallbacks[request_id] = fl::move(callback);
     }
-    
+
     // Retrieve and remove callback for a request ID (using move semantics)
     fl::optional<FetchResponseCallback> takeCallback(uint32_t request_id) {
-        fl::lock_guard<fl::mutex> lock(mCallbacksMutex);
+        fl::unique_lock<fl::mutex> lock(mCallbacksMutex);
         auto it = mPendingCallbacks.find(request_id);
         if (it != mPendingCallbacks.end()) {
             // Move the callback directly from the map entry to avoid double-move

@@ -1,7 +1,8 @@
 // Shared fallback implementation for Arduino examples that require specific platforms
 // This file provides a common fallback for examples that won't compile on all platforms
 
-#include <FastLED.h>
+// ok no namespace fl
+#include <FastLED.h>  // ok include
 
 #define NUM_LEDS 60
 
@@ -19,7 +20,7 @@ void setup() {
 
 void loop() {
     // Simple rainbow animation for fallback
-    static uint8_t hue = 0;
+    static uint8_t hue = 0; // okay static in header
     fill_rainbow(leds, NUM_LEDS, hue, 255/NUM_LEDS);
     FastLED.show();
     delay(50);

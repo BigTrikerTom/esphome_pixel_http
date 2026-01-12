@@ -1,6 +1,11 @@
 #ifndef __INC_BLOCK_CLOCKLESS_ARM_K66_H
 #define __INC_BLOCK_CLOCKLESS_ARM_K66_H
 
+#include "fl/chipsets/timing_traits.h"
+#include "fl/math_macros.h"
+#include "fl/transposition.h"
+#include "fastled_delay.h"
+
 // Definition for a single channel clockless controller for the k66 family of chips, like that used in the teensy 3.6
 // See clockless.h for detailed info on how the template parameters are used.
 #if defined(FASTLED_TEENSY3)
@@ -15,15 +20,32 @@
 #define PORT_SHIFT(P) ((P) << ((FIRST_PIN==0) ? 16 : 0))
 #define PORT_MASK PORT_SHIFT(LANE_MASK)
 
-#define MIN(X,Y) (((X)<(Y)) ? (X):(Y))
-#define USED_LANES ((FIRST_PIN!=15) ? MIN(LANES,8) : MIN(LANES,12))
+#define USED_LANES ((FIRST_PIN!=15) ? FL_MIN(LANES,8) : FL_MIN(LANES,12))
 
 #include <kinetis.h>
-
-FASTLED_NAMESPACE_BEGIN
-
-template <uint8_t LANES, int FIRST_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 40>
+namespace fl {
+/// @brief ARM K66 (Teensy 3.6) Block Clockless LED Controller
+/// @tparam LANES Number of parallel data lines
+/// @tparam FIRST_PIN First pin number (determines port)
+/// @tparam TIMING ChipsetTiming structure containing T1, T2, T3, and RESET values
+/// @tparam RGB_ORDER Color order (RGB, GRB, etc.)
+/// @tparam XTRA0 Additional parameter for platform-specific needs
+/// @tparam FLIP Flip the output bit order if true
+/// @tparam WAIT_TIME Wait time between updates in microseconds
+///
+/// Example usage with named timing constant:
+/// @code
+///   InlineBlockClocklessController<8, 15, TIMING_WS2812_800KHZ, GRB> controller;
+/// @endcode
+template <uint8_t LANES, int FIRST_PIN, typename TIMING, EOrder RGB_ORDER = GRB, int XTRA0 = 0, bool FLIP = false>
 class InlineBlockClocklessController : public CPixelLEDController<RGB_ORDER, LANES, LANE_MASK> {
+	// Extract timing values from struct at compile-time
+	enum : uint32_t {
+		T1 = TIMING::T1,
+		T2 = TIMING::T2,
+		T3 = TIMING::T3,
+		WAIT_TIME = TIMING::RESET
+	};
 	typedef typename FastPin<FIRST_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<FIRST_PIN>::port_t data_t;
 
@@ -339,9 +361,7 @@ public:
 		return ARM_DWT_CYCCNT;
 	}
 };
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif
 
 #endif

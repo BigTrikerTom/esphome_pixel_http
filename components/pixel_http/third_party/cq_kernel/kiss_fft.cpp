@@ -6,7 +6,15 @@
  *  See COPYING file for more information.
  */
 
+#include "fl/stl/cstddef.h"
+#include "fl/str.h"
+#include "fl/stl/cstring.h"  // for fl::memset() and fl::memcpy()
 #include "_kiss_fft_guts.h"
+
+// Ensure NULL is defined (standard C macro)
+#ifndef NULL
+#define NULL 0
+#endif
 /* The guts header contains all the multiplication and addition macros that are defined for
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
@@ -303,12 +311,12 @@ void kf_work(
     where 
     p[i] * m[i] = m[i-1]
     m0 = n                  */
-static 
+static
 void kf_factor(int n,int * facbuf)
 {
     int p=4;
     double floor_sqrt;
-    floor_sqrt = floor( sqrt((double)n) );
+    floor_sqrt = fl::floor( fl::sqrt((double)n) );
 
     /*factor out powers of 4, powers of 2, then any remaining primes */
     do {
@@ -390,7 +398,7 @@ void kiss_fft_stride(kiss_fft_cfg st,const kiss_fft_cpx *fin,kiss_fft_cpx *fout,
         //It just performs an out-of-place FFT into a temp buffer
         kiss_fft_cpx * tmpbuf = (kiss_fft_cpx*)KISS_FFT_TMP_ALLOC( sizeof(kiss_fft_cpx)*st->nfft);
         kf_work(tmpbuf,fin,1,in_stride, st->factors,st);
-        memcpy(fout,tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
+        fl::memcpy(fout,tmpbuf,sizeof(kiss_fft_cpx)*st->nfft);
         KISS_FFT_TMP_FREE(tmpbuf);
     }else{
         kf_work( fout, fin, 1, in_stride, st->factors,st );

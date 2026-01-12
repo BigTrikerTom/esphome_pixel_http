@@ -10,13 +10,13 @@ expensive trig functions are needed. Same with scale and offset.
 
 #include "fl/lut.h"
 #include "fl/math_macros.h"
-#include "fl/memory.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
 #include "fl/xymap.h"
 #include "lib8tion/types.h"
 
 namespace fl {
 
-FASTLED_SMART_PTR(TransformFloatImpl);
+FASTLED_SHARED_PTR(TransformFloatImpl);
 
 using alpha16 =
     u16; // fixed point representation of 0->1 in the range [0, 65535]
@@ -66,7 +66,7 @@ class TransformFloatImpl {
     float scale_y = 1.0f;
     float offset_x = 0.0f;
     float offset_y = 0.0f;
-    float rotation = 0.0f; // rotation range is [0,1], not [0,2*PI]!
+    float rotation = 0.0f; // rotation range is [0,1], not [0,2*FL_PI]!
     float scale() const;
     void set_scale(float scale);
     vec2f transform(const vec2f &xy) const;
@@ -107,9 +107,9 @@ struct TransformFloat {
     float scale_y() const { return mImpl->scale_y; }
     float offset_x() const { return mImpl->offset_x; }
     float offset_y() const { return mImpl->offset_y; }
-    // rotation range is [0,1], not [0,2*PI]!
+    // rotation range is [0,1], not [0,2*FL_PI]!
     float rotation() const { return mImpl->rotation; }
-    float scale() const { return MIN(scale_x(), scale_y()); }
+    float scale() const { return FL_MIN(scale_x(), scale_y()); }
     void set_scale(float scale) { mImpl->set_scale(scale); }
     void set_scale_x(float scale) { mImpl->scale_x = scale; }
     void set_scale_y(float scale) { mImpl->scale_y = scale; }

@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
 #include "crgb.h"
-#include "fl/namespace.h"
 #include "fl/xymap.h"
 
 namespace fl {

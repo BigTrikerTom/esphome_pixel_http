@@ -1,10 +1,7 @@
 #pragma once
-#include "fl/stdint.h"
-
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/stl/stdint.h"
+#include "fl/fastpin_base.h"
+namespace fl {
 #define _R(T) struct __gen_struct_ ## T
 #define _FL_DEFPIN(PIN, BIT, L) template<> class FastPin<PIN> : public _ARMPIN<PIN, BIT, 1 << BIT, _R(GPIO ## L)> {};
 
@@ -13,7 +10,7 @@ FASTLED_NAMESPACE_BEGIN
 /// that something about the way gcc does register allocation results in the bit-band code being slower.  It will need more fine tuning.
 /// The registers are data output, set output, clear output, toggle output, input, and direction
 
-template<uint8_t PIN, uint8_t _BIT, uint32_t _MASK, typename _GPIO> class _ARMPIN {
+template<uint8_t PIN, uint8_t _BIT, uint32_t _MASK, typename _GPIO> class _ARMPIN : public ValidPinBase {
 
 public:
     typedef volatile uint32_t * port_ptr_t;
@@ -44,7 +41,4 @@ public:
 
     inline static port_t mask() __attribute__ ((always_inline)) { return _MASK; }
 };
-
-
-
-FASTLED_NAMESPACE_END
+}  // namespace fl

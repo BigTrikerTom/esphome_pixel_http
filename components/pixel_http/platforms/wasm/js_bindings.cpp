@@ -27,22 +27,42 @@
 #include <emscripten.h>
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
-#include <cfloat>
+#include <cfloat> // ok include
 #include <string>
-#include <cstring>
-#include <cstdlib>
 
 #include "js_bindings.h"
 
 #include "platforms/shared/active_strip_data/active_strip_data.h"
+#include "platforms/wasm/js.h"
 #include "fl/dbg.h"
-#include "fl/math.h"
+#include "fl/stl/math.h"
+#include "fl/stl/malloc.h"
+#include "fl/stl/cstring.h"
 #include "fl/screenmap.h"
 #include "fl/json.h"
+#include "fl/stl/stdio.h"
+
+// EM_JS function to push screenmap updates to JavaScript
+// This allows C++ to notify JavaScript when screenmap data changes
+// JavaScript can then cache the data and avoid per-frame polling
+EM_JS(void, js_notify_screenmap_update, (const char* jsonData), {
+    if (typeof self !== 'undefined' && self.postMessage) {
+        const data = UTF8ToString(jsonData);
+        const parsedData = JSON.parse(data);
+        self.postMessage({
+            type: 'screenmap_update',
+            payload: {
+                screenMapData: parsedData
+            }
+        });
+    } else if (typeof window !== 'undefined') {
+        console.log('[C++] Screenmap update:', UTF8ToString(jsonData));
+    }
+});
 
 // Forward declarations for functions used in this file
 namespace fl {
-void jsUpdateUiComponents(const std::string &jsonStr);
+void jsUpdateUiComponents(const std::string &jsonStr);  // okay std namespace
 }
 
 namespace fl {
@@ -69,8 +89,8 @@ EMSCRIPTEN_KEEPALIVE void* getFrameData(int* dataSize) {
     fl::Str json_str = active_strips.infoJsonString();
     
     // Allocate and return data pointer
-    char* buffer = (char*)malloc(json_str.length() + 1);
-    strcpy(buffer, json_str.c_str());
+    char* buffer = (char*)fl::malloc(json_str.length() + 1);
+    fl::strcpy(buffer, json_str.c_str());
     *dataSize = json_str.length();
     
     return buffer;
@@ -84,95 +104,57 @@ EMSCRIPTEN_KEEPALIVE void* getFrameData(int* dataSize) {
 EMSCRIPTEN_KEEPALIVE void* getScreenMapData(int* dataSize) {
     fl::ActiveStripData& active_strips = fl::ActiveStripData::Instance();
     const auto& screenMaps = active_strips.getScreenMaps();
-    
-    // Create screenMap JSON with expected structure (legacy-compatible)
-    FLArduinoJson::JsonDocument doc;
-    auto root = doc.to<FLArduinoJson::JsonObject>();
-    auto stripsObj = root["strips"].to<FLArduinoJson::JsonObject>();
-    
-    // Track global bounds for absMax/absMin calculation
-    float globalMinX = FLT_MAX, globalMinY = FLT_MAX;
-    float globalMaxX = -FLT_MAX, globalMaxY = -FLT_MAX;
-    bool hasData = false;
-    
-    // Get screenMap data
+
+    // Create dictionary of screenmaps (stripId → screenmap object)
+    // Same format as _jsSetCanvasSize() to match JavaScript expectations
+    fl::Json root = fl::Json::object();
+
+    // Build a separate screenmap object for each strip
     for (const auto &[stripIndex, screenMap] : screenMaps) {
-        // Create strip object with expected structure (legacy-compatible)
-        auto stripMapObj = stripsObj[std::to_string(stripIndex)].to<FLArduinoJson::JsonObject>();
-        
-        auto mapObj = stripMapObj["map"].to<FLArduinoJson::JsonObject>();
-        auto xArray = mapObj["x"].to<FLArduinoJson::JsonArray>();
-        auto yArray = mapObj["y"].to<FLArduinoJson::JsonArray>();
-        
-        // Track strip-specific bounds for min/max arrays
-        float stripMinX = FLT_MAX, stripMinY = FLT_MAX;
-        float stripMaxX = -FLT_MAX, stripMaxY = -FLT_MAX;
-        
+        // Create this strip's screenmap object
+        fl::Json screenMapObj = fl::Json::object();
+
+        // Create strips object containing only this strip
+        fl::Json stripsObj = fl::Json::object();
+        fl::Json stripMapObj = fl::Json::object();
+
+        fl::Json mapObj = fl::Json::object();
+        fl::Json xArray = fl::Json::array();
+        fl::Json yArray = fl::Json::array();
+
         for (uint32_t i = 0; i < screenMap.getLength(); i++) {
             float x = screenMap[i].x;
             float y = screenMap[i].y;
-            
-            xArray.add(x);
-            yArray.add(y);
-            
-            // Update strip bounds
-            if (x < stripMinX) stripMinX = x;
-            if (x > stripMaxX) stripMaxX = x;
-            if (y < stripMinY) stripMinY = y;
-            if (y > stripMaxY) stripMaxY = y;
-            
-            // Update global bounds
-            if (x < globalMinX) globalMinX = x;
-            if (x > globalMaxX) globalMaxX = x;
-            if (y < globalMinY) globalMinY = y;
-            if (y > globalMaxY) globalMaxY = y;
-            hasData = true;
+
+            xArray.push_back(fl::Json(x));
+            yArray.push_back(fl::Json(y));
         }
-        
-        // Add legacy-compatible min/max arrays for this strip
-        if (screenMap.getLength() > 0) {
-            auto minArray = stripMapObj["min"].to<FLArduinoJson::JsonArray>();
-            auto maxArray = stripMapObj["max"].to<FLArduinoJson::JsonArray>();
-            
-            minArray.add(stripMinX);
-            minArray.add(stripMinY);
-            maxArray.add(stripMaxX);
-            maxArray.add(stripMaxY);
-        }
-        
+
+        mapObj.set("x", xArray);
+        mapObj.set("y", yArray);
+        stripMapObj.set("map", mapObj);
+
         // Add diameter
-        stripMapObj["diameter"] = screenMap.getDiameter();
+        stripMapObj.set("diameter", screenMap.getDiameter());
+
+        // Add this strip to the strips object
+        stripsObj.set(fl::to_string(stripIndex), stripMapObj);
+
+        // Set strips object
+        screenMapObj.set("strips", stripsObj);
+
+        // Add this screenmap to the root dictionary
+        root.set(fl::to_string(stripIndex), screenMapObj);
     }
-    
-    // Add global absMin and absMax arrays if we have data
-    if (hasData) {
-        auto absMinArray = root["absMin"].to<FLArduinoJson::JsonArray>();
-        auto absMaxArray = root["absMax"].to<FLArduinoJson::JsonArray>();
-        
-        absMinArray.add(globalMinX);
-        absMinArray.add(globalMinY);
-        absMaxArray.add(globalMaxX);
-        absMaxArray.add(globalMaxY);
-    } else {
-        // Provide default bounds if no data
-        auto absMinArray = root["absMin"].to<FLArduinoJson::JsonArray>();
-        auto absMaxArray = root["absMax"].to<FLArduinoJson::JsonArray>();
-        
-        absMinArray.add(0.0f);
-        absMinArray.add(0.0f);
-        absMaxArray.add(0.0f);
-        absMaxArray.add(0.0f);
-    }
-    
+
     // Serialize to JSON
-    fl::Str json_str;
-    serializeJson(doc, json_str);
-    
+    fl::Str json_str = root.to_string();
+
     // Allocate and return data pointer
-    char* buffer = (char*)malloc(json_str.length() + 1);
-    strcpy(buffer, json_str.c_str());
+    char* buffer = (char*)fl::malloc(json_str.length() + 1);
+    fl::strcpy(buffer, json_str.c_str());
     *dataSize = json_str.length();
-    
+
     return buffer;
 }
 
@@ -182,7 +164,7 @@ EMSCRIPTEN_KEEPALIVE void* getScreenMapData(int* dataSize) {
  */
 EMSCRIPTEN_KEEPALIVE void freeFrameData(void* data) {
     if (data) {
-        free(data);
+        fl::free(data);
     }
 }
 
@@ -191,7 +173,7 @@ EMSCRIPTEN_KEEPALIVE void freeFrameData(void* data) {
  * Gets current frame version number for JavaScript polling
  */
 EMSCRIPTEN_KEEPALIVE uint32_t getFrameVersion() {
-    // Simple frame counter using millis() 
+    // Simple frame counter using millis()
     // WASM is single-threaded so this is safe
     static uint32_t frameCounter = 0;
     frameCounter++;
@@ -220,7 +202,7 @@ EMSCRIPTEN_KEEPALIVE void processUiInput(const char* jsonInput) {
     
     // Process UI input from JavaScript
     // Forward to existing UI system
-    fl::jsUpdateUiComponents(std::string(jsonInput));
+    fl::jsUpdateUiComponents(std::string(jsonInput));  // okay std namespace
 }
 
 } // extern "C"
@@ -233,19 +215,18 @@ namespace fl {
  */
 EMSCRIPTEN_KEEPALIVE void* getStripUpdateData(int stripId, int* dataSize) {
     // Generate basic strip update JSON
-    FLArduinoJson::JsonDocument doc;
-    doc["strip_id"] = stripId;
-    doc["event"] = "strip_update";
-    doc["timestamp"] = millis();
-    
-    Str jsonBuffer;
-    serializeJson(doc, jsonBuffer);
-    
+    fl::Json doc = fl::Json::object();
+    doc.set("strip_id", stripId);
+    doc.set("event", "strip_update");
+    doc.set("timestamp", static_cast<int>(millis()));
+
+    fl::Str jsonBuffer = doc.to_string();
+
     // Allocate and return data pointer
-    char* buffer = (char*)malloc(jsonBuffer.length() + 1);
-    strcpy(buffer, jsonBuffer.c_str());
+    char* buffer = (char*)fl::malloc(jsonBuffer.length() + 1);
+    fl::strcpy(buffer, jsonBuffer.c_str());
     *dataSize = jsonBuffer.length();
-    
+
     return buffer;
 }
 
@@ -264,53 +245,82 @@ EMSCRIPTEN_KEEPALIVE void notifyStripAdded(int stripId, int numLeds) {
  */
 EMSCRIPTEN_KEEPALIVE void* getUiUpdateData(int* dataSize) {
     // Export basic UI update structure
-    FLArduinoJson::JsonDocument doc;
-    doc["event"] = "ui_update";
-    doc["timestamp"] = millis();
-    
-    Str jsonBuffer;
-    serializeJson(doc, jsonBuffer);
-    
+    fl::Json doc = fl::Json::object();
+    doc.set("event", "ui_update");
+    doc.set("timestamp", static_cast<int>(millis()));
+
+    fl::Str jsonBuffer = doc.to_string();
+
     // Allocate and return data pointer
-    char* buffer = (char*)malloc(jsonBuffer.length() + 1);
-    strcpy(buffer, jsonBuffer.c_str());
+    char* buffer = (char*)fl::malloc(jsonBuffer.length() + 1);
+    fl::strcpy(buffer, jsonBuffer.c_str());
     *dataSize = jsonBuffer.length();
-    
+
     return buffer;
 }
 
 /**
- * Canvas Size Setting Function - Exports data instead of calling JavaScript
+ * Canvas Size Setting Function - Push-based notification to JavaScript
+ * When a screenmap is created or updated, this function pushes the complete
+ * screenmap data to JavaScript, eliminating the need for per-frame polling
+ *
+ * Internal function called by EngineListener when screenmaps are updated.
+ * Not exposed in public API - platform-specific listener handles JS communication.
  */
-static void _jsSetCanvasSize(int cledcontoller_id, const fl::ScreenMap &screenmap) {
-    // Export canvas size data as JSON for JavaScript to process
-    FLArduinoJson::JsonDocument doc;
-    doc["strip_id"] = cledcontoller_id;
-    doc["event"] = "set_canvas_map";
-    auto map = doc["map"].to<FLArduinoJson::JsonObject>();
-    doc["length"] = screenmap.getLength();
-    auto x = map["x"].to<FLArduinoJson::JsonArray>();
-    auto y = map["y"].to<FLArduinoJson::JsonArray>();
-    for (uint32_t i = 0; i < screenmap.getLength(); i++) {
-        x.add(screenmap[i].x);
-        y.add(screenmap[i].y);
-    }
-    // add diameter.
-    float diameter = screenmap.getDiameter();
-    if (diameter > 0.0f) {
-        doc["diameter"] = diameter;
-    }
-    
-    Str jsonBuffer;
-    serializeJson(doc, jsonBuffer);
-    
-    // Instead of calling JavaScript directly, just print for now
-    // JavaScript will poll for this data or receive it through events
-    printf("Canvas map data: %s\n", jsonBuffer.c_str());
-}
+void _jsSetCanvasSize(int cledcontoller_id, const fl::ScreenMap &screenmap) {
+    // Get the complete screenmap data for all strips
+    fl::ActiveStripData& active_strips = fl::ActiveStripData::Instance();
+    const auto& screenMaps = active_strips.getScreenMaps();
 
-void jsSetCanvasSize(int cledcontoller_id, const fl::ScreenMap &screenmap) {
-    _jsSetCanvasSize(cledcontoller_id, screenmap);
+    // Create dictionary of screenmaps (stripId → screenmap object)
+    fl::Json root = fl::Json::object();
+
+    // Build a separate screenmap object for each strip
+    for (const auto &[stripIndex, screenMap] : screenMaps) {
+        // Create this strip's screenmap object
+        fl::Json screenMapObj = fl::Json::object();
+
+        // Create strips object containing only this strip
+        fl::Json stripsObj = fl::Json::object();
+        fl::Json stripMapObj = fl::Json::object();
+
+        fl::Json mapObj = fl::Json::object();
+        fl::Json xArray = fl::Json::array();
+        fl::Json yArray = fl::Json::array();
+
+        for (uint32_t i = 0; i < screenMap.getLength(); i++) {
+            float x = screenMap[i].x;
+            float y = screenMap[i].y;
+
+            xArray.push_back(fl::Json(x));
+            yArray.push_back(fl::Json(y));
+        }
+
+        mapObj.set("x", xArray);
+        mapObj.set("y", yArray);
+        stripMapObj.set("map", mapObj);
+
+        // Add diameter
+        stripMapObj.set("diameter", screenMap.getDiameter());
+
+        // Add this strip to the strips object
+        stripsObj.set(fl::to_string(stripIndex), stripMapObj);
+
+        // Set strips object
+        screenMapObj.set("strips", stripsObj);
+
+        // Add this screenmap to the root dictionary
+        root.set(fl::to_string(stripIndex), screenMapObj);
+    }
+
+    // Serialize to JSON
+    fl::Str jsonBuffer = root.to_string();
+
+    // Push the complete screenmap data to JavaScript
+    // JavaScript worker will cache this and avoid per-frame polling
+    // NOTE: EM_JS has linking issues with partial linking - use polling approach instead
+    // Worker will call getScreenMapData() during initialization to fetch this data
+    FL_DBG("Screenmap update available (worker will poll via getScreenMapData): " << jsonBuffer.c_str());
 }
 
 EMSCRIPTEN_KEEPALIVE void jsFillInMissingScreenMaps(ActiveStripData &active_strips) {
@@ -322,7 +332,9 @@ EMSCRIPTEN_KEEPALIVE void jsFillInMissingScreenMaps(ActiveStripData &active_stri
     };
     const auto &info = active_strips.getData();
     // check to see if we have any missing screenmaps.
-    for (const auto &[stripIndex, stripData] : info) {
+    for (const auto &pair : info) {
+        int stripIndex = pair.first;
+        const auto &stripData = pair.second;
         const bool has_screen_map = active_strips.hasScreenMap(stripIndex);
         if (!has_screen_map) {
             printf("Missing screenmap for strip %d\n", stripIndex);
@@ -385,7 +397,7 @@ EMSCRIPTEN_KEEPALIVE void jsOnStripAdded(uintptr_t strip, uint32_t num_leds) {
  * Pure C++ UI Update Function - Simple data processing
  */
 EMSCRIPTEN_KEEPALIVE void updateJs(const char* jsonStr) {
-    printf("updateJs: ENTRY - PURE C++ VERSION - jsonStr=%s\n", jsonStr ? jsonStr : "NULL");
+    printf("updateJs: ENTRY - PURE C++ VERSION - jsonStr=%s\n", jsonStr ? jsonStr : "nullptr");
     
     // Process UI input using pure C++ function
     ::processUiInput(jsonStr);

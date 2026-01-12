@@ -1,11 +1,10 @@
 #define FASTLED_INTERNAL
-#include "FastLED.h"
+#include "fl/fastled.h"
 
 /// @file wiring.cpp
 /// Re-implementation of Arduino core functions
 /// @deprecated No longer used
 
-FASTLED_USING_NAMESPACE
 
 #if 0
 
@@ -239,4 +238,3 @@ void init()
 #endif
 
 #endif
-

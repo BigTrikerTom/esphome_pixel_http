@@ -7,8 +7,8 @@
 #include <Adafruit_NeoPixel.h>
 
 
-#include "fl/unique_ptr.h"
-#include "fl/memory.h"
+#include "fl/stl/unique_ptr.h"
+#include "fl/stl/memory.h"
 #include "pixel_iterator.h"
 #include "platforms/adafruit/driver.h"
 
@@ -65,7 +65,7 @@ public:
         if (rgbw.active()) {
             // RGBW mode
             for (int i = 0; pixelIterator.has(1); ++i) {
-                fl::u8 r, g, b, w;
+                u8 r, g, b, w;
                 pixelIterator.loadAndScaleRGBW(&r, &g, &b, &w);
                 mNeoPixel->setPixelColor(i, r, g, b, w);
                 pixelIterator.advanceData();
@@ -73,7 +73,7 @@ public:
         } else {
             // RGB mode
             for (int i = 0; pixelIterator.has(1); ++i) {
-                fl::u8 r, g, b;
+                u8 r, g, b;
                 pixelIterator.loadAndScaleRGB(&r, &g, &b);
                 mNeoPixel->setPixelColor(i, r, g, b);
                 pixelIterator.advanceData();

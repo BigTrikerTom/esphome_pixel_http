@@ -1,13 +1,11 @@
 #pragma once
 
-// allow-include-after-namespace
+#include "fl/stl/strstream.h"
 
-// Forward declaration to avoid pulling in fl/io.h and causing fl/io.cpp to be compiled
+// Forward declaration to avoid pulling in fl/stl/cstdio.h and causing fl/stl/cstdio.cpp to be compiled
 namespace fl {
     void println(const char* str);
 }
-
-#include "fl/strstream.h"
 
 #define FASTLED_ASSERT(x, MSG)                                                 \
     {                                                                          \

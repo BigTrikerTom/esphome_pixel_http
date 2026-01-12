@@ -13,16 +13,15 @@
 
 
 
-#include "fl/namespace.h"
-#include "fl/memory.h"
+#include "fl/stl/memory.h"
 #include "fl/file_system.h"
-#include "fl/type_traits.h"
+#include "fl/stl/type_traits.h"
 
 namespace fl {
 
 // Forward declare the smart pointer type for FsArduino
 class FsArduino;
-FASTLED_SMART_PTR(FsArduino);
+FASTLED_SHARED_PTR(FsArduino);
 
 #ifdef USE_SDFAT
 class SdFatFileHandle : public FileHandle {

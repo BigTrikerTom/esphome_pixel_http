@@ -65,8 +65,8 @@
  *
  * @code
  * #include "fl/json.h"
- * #include "fl/string.h"
- * #include "fl/vector.h"
+ * #include "fl/stl/string.h"
+ * #include "fl/stl/vector.h"
  * #include "fl/warn.h"
  *
  * // Create a root JSON object
@@ -142,17 +142,17 @@
 */
 
 
-#include "fl/string.h"
-#include "fl/vector.h"
-#include "fl/hash_map.h"
-#include "fl/variant.h"
-#include "fl/optional.h"
-#include "fl/unique_ptr.h"
-#include "fl/shared_ptr.h"
-#include "fl/functional.h"
-#include "fl/str.h" // For StringFormatter
+#include "fl/stl/string.h"
+#include "fl/stl/vector.h"
+#include "fl/stl/unordered_map.h"
+#include "fl/stl/variant.h"
+#include "fl/stl/optional.h"
+#include "fl/stl/unique_ptr.h"
+#include "fl/stl/shared_ptr.h"
+#include "fl/stl/functional.h"
+#include "fl/stl/cctype.h"
+#include "fl/stl/charconv.h"
 #include "fl/promise.h" // For Error type
-#include "fl/warn.h" // For FL_WARN
 
 #include "fl/sketch_macros.h"
 
@@ -170,7 +170,7 @@ struct JsonValue;
 // Define Array and Object as pointers to avoid incomplete type issues
 // We'll use heap-allocated containers for these to avoid alignment issues
 using JsonArray = fl::vector<fl::shared_ptr<JsonValue>>;
-using JsonObject = fl::HashMap<fl::string, fl::shared_ptr<JsonValue>>;
+using JsonObject = fl::unordered_map<fl::string, fl::shared_ptr<JsonValue>>;
 
 // ParseResult struct to replace variant<T, Error>
 template<typename T>
@@ -210,7 +210,7 @@ struct DefaultValueVisitor {
 
     DefaultValueVisitor(const T& fb) : fallback(fb) {}
 
-    // This is the method that fl::Variant expects
+    // This is the method that fl::variant expects
     template<typename U>
     void accept(const U& value) {
         // Dispatch to the correct operator() overload
@@ -343,7 +343,7 @@ struct IntConversionVisitor {
         
         // Check that all remaining characters are digits
         for (fl::size i = startPos; i < str.length(); i++) {
-            if (!StringFormatter::isDigit(str[i])) {
+            if (!fl::isdigit(str[i])) {
                 isValidInt = false;
                 break;
             }
@@ -351,7 +351,7 @@ struct IntConversionVisitor {
         
         // If it looks like a valid integer, try to parse it
         if (isValidInt && str.length() > 0) {
-            int parsed = StringFormatter::parseInt(str.c_str(), str.length());
+            int parsed = fl::parseInt(str.c_str(), str.length());
             result = static_cast<IntType>(parsed);
         }
     }
@@ -400,7 +400,7 @@ struct IntConversionVisitor<int64_t> {
         
         // Check that all remaining characters are digits
         for (fl::size i = startPos; i < str.length(); i++) {
-            if (!StringFormatter::isDigit(str[i])) {
+            if (!fl::isdigit(str[i])) {
                 isValidInt = false;
                 break;
             }
@@ -408,7 +408,7 @@ struct IntConversionVisitor<int64_t> {
         
         // If it looks like a valid integer, try to parse it
         if (isValidInt && str.length() > 0) {
-            int parsed = StringFormatter::parseInt(str.c_str(), str.length());
+            int parsed = fl::parseInt(str.c_str(), str.length());
             result = static_cast<int64_t>(parsed);
         }
     }
@@ -480,7 +480,7 @@ struct FloatConversionVisitor {
                     break;
                 }
                 hasDecimal = true;
-            } else if (!StringFormatter::isDigit(c) && c != 'e' && c != 'E') {
+            } else if (!fl::isdigit(c) && c != 'e' && c != 'E') {
                 isValidFloat = false;
                 break;
             }
@@ -493,7 +493,7 @@ struct FloatConversionVisitor {
             bool isSimpleDecimal = true;
             for (fl::size i = startPos; i < str.length(); i++) {
                 char c = str[i];
-                if (c != '.' && !StringFormatter::isDigit(c)) {
+                if (c != '.' && !fl::isdigit(c)) {
                     isSimpleDecimal = false;
                     break;
                 }
@@ -501,11 +501,11 @@ struct FloatConversionVisitor {
             
             if (isSimpleDecimal) {
                 // For simple decimals, we can do a more direct conversion
-                float parsed = StringFormatter::parseFloat(str.c_str(), str.length());
+                float parsed = fl::parseFloat(str.c_str(), str.length());
                 result = static_cast<FloatType>(parsed);
             } else {
                 // For complex floats (with exponents), use the standard approach
-                float parsed = StringFormatter::parseFloat(str.c_str(), str.length());
+                float parsed = fl::parseFloat(str.c_str(), str.length());
                 result = static_cast<FloatType>(parsed);
             }
         }
@@ -568,7 +568,7 @@ struct FloatConversionVisitor<double> {
                     break;
                 }
                 hasDecimal = true;
-            } else if (!StringFormatter::isDigit(c) && c != 'e' && c != 'E') {
+            } else if (!fl::isdigit(c) && c != 'e' && c != 'E') {
                 isValidFloat = false;
                 break;
             }
@@ -581,7 +581,7 @@ struct FloatConversionVisitor<double> {
             bool isSimpleDecimal = true;
             for (fl::size i = startPos; i < str.length(); i++) {
                 char c = str[i];
-                if (c != '.' && !StringFormatter::isDigit(c)) {
+                if (c != '.' && !fl::isdigit(c)) {
                     isSimpleDecimal = false;
                     break;
                 }
@@ -589,11 +589,11 @@ struct FloatConversionVisitor<double> {
             
             if (isSimpleDecimal) {
                 // For simple decimals, we can do a more direct conversion
-                float parsed = StringFormatter::parseFloat(str.c_str(), str.length());
+                float parsed = fl::parseFloat(str.c_str(), str.length());
                 result = static_cast<double>(parsed);
             } else {
                 // For complex floats (with exponents), use the standard approach
-                float parsed = StringFormatter::parseFloat(str.c_str(), str.length());
+                float parsed = fl::parseFloat(str.c_str(), str.length());
                 result = static_cast<double>(parsed);
             }
         }
@@ -661,7 +661,7 @@ struct JsonValue {
     
     
     // The variant holds exactly one of these alternatives
-    using variant_t = fl::Variant<
+    using variant_t = fl::variant<
         fl::nullptr_t,   // null
         bool,            // true/false
         int64_t,         // integer
@@ -805,7 +805,7 @@ struct JsonValue {
         return data.visit(fl::forward<Visitor>(visitor));
     }
 
-    // Type queries - using is<T>() instead of index() for fl::Variant
+    // Type queries - using is<T>() instead of index() for fl::variant
     bool is_null() const noexcept { 
         //FASTLED_WARN("is_null called, tag=" << data.tag());
         return data.is<fl::nullptr_t>(); 
@@ -2156,7 +2156,12 @@ public:
         auto objPtr = m_value->data.ptr<JsonObject>();
         if (objPtr) {
             // Create or update the entry directly
-            (*objPtr)[key] = value.m_value;
+            if (value.m_value) {
+                (*objPtr)[key] = value.m_value;
+            } else {
+                // If value has null m_value, create a null JsonValue
+                (*objPtr)[key] = fl::make_shared<JsonValue>(nullptr);
+            }
         }
     }
     

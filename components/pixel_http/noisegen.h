@@ -3,15 +3,10 @@
 
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 #include "noise.h"
 
 #include "fl/math_macros.h"
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
-
-
 // Simple noise generator for 1-d waves. Default values will give good results
 // for most cases.
 struct NoiseGenerator {
@@ -29,8 +24,7 @@ struct NoiseGenerator {
 
     int LedValue(int32_t i, unsigned long time_ms) const {
         int val = Value(i, time_ms);
-        return MAX(0, val - 128) * 2;
+        return FL_MAX(0, val - 128) * 2;
     }
 };
 
-FASTLED_NAMESPACE_END

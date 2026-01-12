@@ -1,12 +1,19 @@
 
 #pragma once
 
-#include "fl/stdint.h"
 
 #include "fl/math_macros.h"
-#include "fl/warn.h"
+#include "fl/int.h"
 
 namespace fl {
+
+// Phase of the TimeRamp transition
+enum class RampPhase {
+    Inactive,  // Not started or finished
+    Rising,    // Ramping up from 0 to 255
+    Plateau,   // Holding at 255
+    Falling    // Ramping down from 255 to 0
+};
 
 // Use this function to compute the alpha value based on the time elapsed
 // 0 -> 255
@@ -60,13 +67,18 @@ class TimeRamp : public TimeAlpha {
     TimeRamp(u32 risingTime, u32 latchMs, u32 fallingTime);
 
     /// Call this when you want to (re)start the ramp cycle.
+    /// Smart re-trigger that preserves state when already active:
+    /// - If in plateau: extends the plateau time
+    /// - If falling: reverses back to plateau
+    /// - If rising: continues rising
+    /// - If inactive: starts new cycle
     void trigger(u32 now) override;
-
-    void trigger(u32 now, u32 risingTime, u32 latchMs,
-                 u32 fallingTime);
 
     /// @return true iff we're still within the latch period.
     bool isActive(u32 now) const override;
+
+    /// Get the current phase of the ramp
+    RampPhase getCurrentPhase(u32 now) const;
 
     /// Compute current 0–255 output based on how much time has elapsed since
     /// trigger().
@@ -142,7 +154,7 @@ class TimeClampedTransition : public TimeAlpha {
         }
         float out = time_alphaf(now, mStart, mEnd);
         if (mMaxClamp > 0.f) {
-            out = MIN(out, mMaxClamp);
+            out = FL_MIN(out, mMaxClamp);
         }
         return out;
     }

@@ -1,10 +1,12 @@
 #ifndef __INC_FASTSPI_ARM_MXRT1062_H
 #define __INC_FASTSPI_ARM_MXRT1062_H
 
-FASTLED_NAMESPACE_BEGIN
+#include "platforms/arm/teensy/is_teensy.h"
 
-#if defined (FASTLED_TEENSY4) && defined(ARM_HARDWARE_SPI)
+#if defined(FL_IS_TEENSY_4X)
 #include <SPI.h>
+
+namespace fl {
 
 template <uint8_t _DATA_PIN, uint8_t _CLOCK_PIN, uint32_t _SPI_CLOCK_RATE, SPIClass & _SPIObject, int _SPI_INDEX>
 class Teensy4HardwareSPIOutput {
@@ -23,7 +25,7 @@ class Teensy4HardwareSPIOutput {
 	}
 
 public:
-	Teensy4HardwareSPIOutput() { m_pSelect = NULL; m_bitCount = 0;}
+	Teensy4HardwareSPIOutput() { m_pSelect = nullptr; m_bitCount = 0;}
 	Teensy4HardwareSPIOutput(Selectable *pSelect) { m_pSelect = pSelect; m_bitCount = 0;}
 
 	// set the object representing the selectable -- ignore for now
@@ -36,13 +38,18 @@ public:
 	void inline select() __attribute__((always_inline)) {
 		// begin the SPI transaction
 		_SPIObject.beginTransaction(SPISettings(_SPI_CLOCK_RATE, MSBFIRST, SPI_MODE0));
-		if(m_pSelect != NULL) { m_pSelect->select(); }
+		if(m_pSelect != nullptr) { m_pSelect->select(); }
 	}
 
 	// release the CS select
 	void inline release() __attribute__((always_inline)) {
-		if(m_pSelect != NULL) { m_pSelect->release(); }
+		if(m_pSelect != nullptr) { m_pSelect->release(); }
 		_SPIObject.endTransaction();
+	}
+
+	void endTransaction() {
+		waitFully();
+		release();
 	}
 
 	// wait until all queued up data has been written
@@ -112,7 +119,7 @@ public:
 
 	// write a block of uint8_ts out in groups of three.  len is the total number of uint8_ts to write out.  The template
 	// parameters indicate how many uint8_ts to skip at the beginning and/or end of each grouping
-	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = NULL) {
+	template <uint8_t FLAGS, class D, EOrder RGB_ORDER> void writePixels(PixelController<RGB_ORDER> pixels, void* context = nullptr) {
 		select();
     int len = pixels.mLen;
 
@@ -131,10 +138,14 @@ public:
 		release();
 	}
 
+	/// Finalize transmission (no-op for Teensy 4.x SPI)
+	/// This method exists for compatibility with other SPI implementations
+	/// that may need to flush buffers or perform post-transmission operations
+	static void finalizeTransmission() { }
+
 };
 
 
 #endif
-
-FASTLED_NAMESPACE_END
+}  // namespace fl
 #endif

@@ -1,14 +1,14 @@
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
 #include "fl/audio.h"
+#include "fl/audio_input.h"  // For AudioConfig
 #include "fl/math_macros.h"
-#include "fl/namespace.h"
 #include "fl/str.h"
-#include "fl/type_traits.h"
+#include "fl/stl/type_traits.h"
 #include "fl/unused.h"
-#include "fl/vector.h"
+#include "fl/stl/vector.h"
 #include "fl/warn.h"
 #include "platforms/ui_defs.h"
 
@@ -55,7 +55,7 @@ class UISliderImpl {
     // If step is -1, it will be calculated as (max - min) / 100
     UISliderImpl(const char *name, float value = 128.0f, float min = 1,
                  float max = 255, float step = -1.f)
-        : mValue(value), mMin(MIN(min, max)), mMax(MAX(min, max)) {
+        : mValue(value), mMin(FL_MIN(min, max)), mMax(FL_MAX(min, max)) {
         FASTLED_UNUSED(name);
         FASTLED_UNUSED(step);
         if (value < min) {
@@ -69,7 +69,7 @@ class UISliderImpl {
     float value() const { return mValue; }
     float getMax() const { return mMax; }
     float getMin() const { return mMin; }
-    void setValue(float value) { mValue = MAX(mMin, MIN(mMax, value)); }
+    void setValue(float value) { mValue = FL_MAX(mMin, FL_MIN(mMax, value)); }
     operator float() const { return mValue; }
     operator u8() const { return static_cast<u8>(mValue); }
     operator u16() const { return static_cast<u16>(mValue); }
@@ -158,12 +158,12 @@ class UINumberFieldImpl {
   public:
     UINumberFieldImpl(const char *name, double value, double min = 0,
                       double max = 100)
-        : mValue(value), mMin(MIN(min, max)), mMax(MAX(min, max)) {
+        : mValue(value), mMin(FL_MIN(min, max)), mMax(FL_MAX(min, max)) {
         FASTLED_UNUSED(name);
     }
     ~UINumberFieldImpl() {}
     double value() const { return mValue; }
-    void setValue(double value) { mValue = MAX(mMin, MIN(mMax, value)); }
+    void setValue(double value) { mValue = FL_MAX(mMin, FL_MIN(mMax, value)); }
     operator double() const { return mValue; }
     operator int() const { return static_cast<int>(mValue); }
     UINumberFieldImpl &operator=(double value) {
@@ -234,6 +234,10 @@ class UIHelpImpl {
 class UIAudioImpl {
   public:
     UIAudioImpl(const char *name) { FASTLED_UNUSED(name); }
+    UIAudioImpl(const char *name, const fl::AudioConfig& config) {
+        FASTLED_UNUSED(name);
+        FASTLED_UNUSED(config);
+    }
     ~UIAudioImpl() {}
 
     AudioSample next() {
@@ -245,7 +249,7 @@ class UIAudioImpl {
         FASTLED_WARN("Audio sample not implemented");
         return false;
     }
-    
+
     // Stub method for group setting (does nothing on non-WASM platforms)
     void setGroup(const fl::string& groupName) { FASTLED_UNUSED(groupName); }
 };

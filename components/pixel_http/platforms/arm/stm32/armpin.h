@@ -1,9 +1,8 @@
 #pragma once
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
+#include "fl/fastpin_base.h"
 
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
+namespace fl {
 
 
 #define _R(T) struct __gen_struct_ ## T
@@ -64,8 +63,9 @@ public:
 #endif
 
     inline static port_t mask() __attribute__ ((always_inline)) { return _MASK; }
+
+    /// Check if this pin is valid for use with FastLED
+    static constexpr bool validpin() { return true; }
 };
 
-
-
-FASTLED_NAMESPACE_END
+}  // namespace fl

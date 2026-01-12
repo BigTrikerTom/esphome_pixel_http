@@ -1,8 +1,9 @@
 
 #include "fl/rectangular_draw_buffer.h"
-#include "fl/allocator.h"
-#include "fl/namespace.h"
+#include "fl/stl/allocator.h"
 #include "rgbw.h"
+#include "fl/str.h"
+#include "fl/stl/cstring.h"  // for fl::memset()
 
 namespace fl {
 
@@ -23,7 +24,7 @@ RectangularDrawBuffer::getLedsBufferBytesForPin(u8 pin, bool clear_first) {
     }
     fl::span<u8> slice = it->second;
     if (clear_first) {
-        memset(slice.data(), 0, slice.size() * sizeof(slice[0]));
+        fl::memset(slice.data(), 0, slice.size() * sizeof(slice[0]));
     }
     return slice;
 }
@@ -37,7 +38,7 @@ bool RectangularDrawBuffer::onQueuingStart() {
     mDrawList.swap(mPrevDrawList);
     mDrawList.clear();
     if (mAllLedsBufferUint8Size > 0) {
-        memset(mAllLedsBufferUint8.get(), 0, mAllLedsBufferUint8Size);
+        fl::memset(mAllLedsBufferUint8.get(), 0, mAllLedsBufferUint8Size);
     }
     return true;
 }
@@ -79,7 +80,7 @@ bool RectangularDrawBuffer::onQueuingDone() {
 u32 RectangularDrawBuffer::getMaxBytesInStrip() const {
     u32 max_bytes = 0;
     for (auto it = mDrawList.begin(); it != mDrawList.end(); ++it) {
-        max_bytes = MAX(max_bytes, it->mNumBytes);
+        max_bytes = FL_MAX(max_bytes, it->mNumBytes);
     }
     return max_bytes;
 }

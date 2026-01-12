@@ -1,9 +1,18 @@
 #define FASTLED_INTERNAL
+#include <stdint.h>  // for uint8_t, uint32_t, uint16_t
 #include "FastLED.h"
-#include "fl/singleton.h"
 #include "fl/engine_events.h"
 #include "fl/compiler_control.h"
-#include "fl/int.h"
+#include "fl/channels/channel.h"
+#include "fl/channels/bus_manager.h"
+#include "fl/trace.h"
+#include "fl/channels/engine.h"  // for IChannelEngine
+#include "fl/delay.h"  // for delayMicroseconds
+#include "fl/stl/assert.h"  // for FL_ASSERT
+#include "hsv2rgb.h"  // for CRGB
+#include "fl/int.h"  // for u32, u16
+#include "platforms/init.h"  // IWYU pragma: keep
+#include "fl/channels/config.h"  // for ChannelConfig
 
 /// @file FastLED.cpp
 /// Central source file for FastLED, implements the CFastLED class/object
@@ -29,20 +38,6 @@
 volatile fl::u32 fuckit;
 #endif
 
-// Disable to fix build breakage.
-// #ifndef FASTLED_DEFINE_WEAK_YEILD_FUNCTION
-// #if defined(__AVR_ATtiny13__)
-// // Arduino.h also defines this as a weak function on this platform.
-// #define FASTLED_DEFINE_WEAK_YEILD_FUNCTION 0
-// #else
-// #define FASTLED_DEFINE_WEAK_YEILD_FUNCTION 1
-// #endif
-// #endif
-
-/// Has to be declared outside of any namespaces.
-/// Called at program exit when run in a desktop environment. 
-/// Extra C definition that some environments may need. 
-/// @returns 0 to indicate success
 
 #ifndef FASTLED_NO_ATEXIT
 #define FASTLED_NO_ATEXIT 0
@@ -56,17 +51,13 @@ extern "C" FL_LINK_WEAK int atexit(void (* /*func*/ )()) { return 0; }
 extern "C" void yield(void) { }
 #endif
 
-FASTLED_NAMESPACE_BEGIN
-
-fl::u16 cled_contoller_size() {
-	return sizeof(CLEDController);
-}
+// Implementation of cled_contoller_size() moved to src/fl/fastled_internal.cpp
 
 uint8_t get_brightness();
 
 /// Pointer to the matrix object when using the Smart Matrix Library
 /// @see https://github.com/pixelmatix/SmartMatrix
-void *pSmartMatrix = NULL;
+void *pSmartMatrix = nullptr;
 
 FL_DISABLE_WARNING_PUSH
 FL_DISABLE_WARNING_GLOBAL_CONSTRUCTORS
@@ -75,8 +66,8 @@ CFastLED FastLED;  // global constructor allowed in this case.
 
 FL_DISABLE_WARNING_POP
 
-CLEDController *CLEDController::m_pHead = NULL;
-CLEDController *CLEDController::m_pTail = NULL;
+CLEDController *CLEDController::m_pHead = nullptr;
+CLEDController *CLEDController::m_pTail = nullptr;
 static fl::u32 lastshow = 0;
 
 /// Global frame counter, used for debugging ESP implementations
@@ -94,9 +85,16 @@ CFastLED::CFastLED() {
 	// m_nControllers = 0;
 	m_Scale = 255;
 	m_nFPS = 0;
-	m_pPowerFunc = NULL;
+	m_pPowerFunc = nullptr;
 	m_nPowerData = 0xFFFFFFFF;
 	m_nMinMicros = 0;
+}
+
+void CFastLED::init() {
+	// Call platform-specific initialization once
+	// Uses the trampoline pattern: platforms/init.h dispatches to platform-specific headers
+	// FL_RUN_ONCE ensures this is only called once, even if init() is called multiple times
+	FL_RUN_ONCE(fl::platforms::init());
 }
 
 int CFastLED::size() {
@@ -108,7 +106,7 @@ CRGB* CFastLED::leds() {
 }
 
 CLEDController &CFastLED::addLeds(CLEDController *pLed,
-								  struct CRGB *data,
+								  CRGB *data,
 								  int nLedsOrOffset, int nLedsIfOffset) {
 	int nOffset = (nLedsIfOffset > 0) ? nLedsOrOffset : 0;
 	int nLeds = (nLedsIfOffset > 0) ? nLedsIfOffset : nLedsOrOffset;
@@ -128,7 +126,8 @@ CLEDController &CFastLED::addLeds(CLEDController *pLed,
 // static uninitialized gControllersData produces the smallest binary on attiny85.
 static void* gControllersData[MAX_CLED_CONTROLLERS];
 
-void CFastLED::show(uint8_t scale) {
+FL_KEEP_ALIVE void CFastLED::show(uint8_t scale) {
+	FL_SCOPED_TRACE;
 #if !FASTLED_MANUAL_ENGINE_EVENTS
 	fl::EngineEvents::onBeginFrame();
 #endif
@@ -199,14 +198,14 @@ CLEDController & CFastLED::operator[](int x) {
 	while(x-- && pCur) {
 		pCur = pCur->next();
 	}
-	if(pCur == NULL) {
+	if(pCur == nullptr) {
 		return *(CLEDController::head());
 	} else {
 		return *pCur;
 	}
 }
 
-void CFastLED::showColor(const struct CRGB & color, uint8_t scale) {
+void CFastLED::showColor(const CRGB & color, uint8_t scale) {
 	while(m_nMinMicros && ((micros()-lastshow) < m_nMinMicros));
 	lastshow = micros();
 
@@ -278,7 +277,7 @@ void CFastLED::delay(unsigned long ms) {
 	while((millis()-start) < ms);
 }
 
-void CFastLED::setTemperature(const struct CRGB & temp) {
+void CFastLED::setTemperature(const CRGB & temp) {
 	CLEDController *pCur = CLEDController::head();
 	while(pCur) {
 		pCur->setTemperature(temp);
@@ -286,7 +285,7 @@ void CFastLED::setTemperature(const struct CRGB & temp) {
 	}
 }
 
-void CFastLED::setCorrection(const struct CRGB & correction) {
+void CFastLED::setCorrection(const CRGB & correction) {
 	CLEDController *pCur = CLEDController::head();
 	while(pCur) {
 		pCur->setCorrection(correction);
@@ -388,7 +387,90 @@ uint8_t get_brightness() {
 	return FastLED.getBrightness();
 }
 
+// ============================================================================
+// Deprecated Power Management Wrapper Functions
+// ============================================================================
+// These functions wrap the CFastLED singleton methods for backward compatibility.
+// They were originally in power_mgt.cpp but have been moved here to avoid
+// circular dependencies (power_mgt.cpp should not include FastLED.h).
 
+void set_max_power_in_volts_and_milliamps(uint8_t volts, uint32_t milliamps)
+{
+	FastLED.setMaxPowerInVoltsAndMilliamps(volts, milliamps);
+}
+
+void set_max_power_in_milliwatts(uint32_t powerInmW)
+{
+	FastLED.setMaxPowerInMilliWatts(powerInmW);
+}
+
+void show_at_max_brightness_for_power()
+{
+	// power management usage is now in FastLED.show, no need for this function
+	FastLED.show();
+}
+
+void delay_at_max_brightness_for_power(uint16_t ms)
+{
+	FastLED.delay(ms);
+}
+
+// ============================================================================
+// Channel Bus Manager Controls
+// ============================================================================
+
+#ifdef ESP32
+void CFastLED::setDriverEnabled(const char* name, bool enabled) {
+	fl::ChannelBusManager& manager = fl::channelBusManager();
+	manager.setDriverEnabled(name, enabled);
+}
+
+bool CFastLED::setExclusiveDriver(const char* name) {
+	fl::ChannelBusManager& manager = fl::channelBusManager();
+	return manager.setExclusiveDriver(name);
+}
+
+bool CFastLED::isDriverEnabled(const char* name) const {
+	fl::ChannelBusManager& manager = fl::channelBusManager();
+	return manager.isDriverEnabled(name);
+}
+
+fl::size CFastLED::getDriverCount() const {
+	fl::ChannelBusManager& manager = fl::channelBusManager();
+	return manager.getDriverCount();
+}
+
+fl::span<const fl::DriverInfo> CFastLED::getDriverInfos() const {
+	fl::ChannelBusManager& manager = fl::channelBusManager();
+	return manager.getDriverInfos();
+}
+#endif
+
+// ============================================================================
+// Wait for channel bus transmissions
+// ============================================================================
+
+void CFastLED::wait() {
+	fl::ChannelBusManager& manager = fl::channelBusManager();
+	// Poll until the channel bus manager reports READY state
+	// Use delayMicroseconds to prevent watchdog timeout
+	while (manager.poll() != fl::IChannelEngine::EngineState::READY) {
+		fl::delayMicroseconds(100);
+	}
+}
+
+// ============================================================================
+// Runtime Channel API Implementation
+// ============================================================================
+
+fl::ChannelPtr CFastLED::addChannel(const fl::ChannelConfig& config) {
+    fl::ChannelBusManager& manager = fl::channelBusManager();
+    FL_ASSERT(manager.getDriverCount() > 0,
+              "No channel drivers available - channel API requires at least one registered driver");
+    return fl::Channel::create(config);
+}
+
+// ============================================================================
 
 #ifdef NEED_CXX_BITS
 namespace __cxxabiv1
@@ -422,5 +504,3 @@ namespace __cxxabiv1
 	}
 }
 #endif
-
-FASTLED_NAMESPACE_END

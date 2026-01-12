@@ -1,14 +1,14 @@
 
 #include "fl/tile2x2.h"
 #include "fl/splat.h"
-#include "fl/math.h"
+#include "fl/stl/math.h"
 
 namespace fl {
 
 static u8 to_uint8(float f) {
     // convert to [0..255] range
     u8 i = static_cast<u8>(f * 255.0f + .5f);
-    return MIN(i, 255);
+    return FL_MIN(i, 255);
 }
 
 Tile2x2_u8 splat(vec2f xy) {

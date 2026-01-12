@@ -1,10 +1,8 @@
 #pragma once
 
-#include "fl/stdint.h"
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/stl/stdint.h"
+#include "fl/fastpin_base.h"
+namespace fl {
 struct FASTLED_ESP_IO {
     volatile uint32_t _GPO;
     volatile uint32_t _GPOS;
@@ -42,7 +40,12 @@ public:
     inline static port_t mask() __attribute__ ((always_inline)) { return MASK; }
 
     inline static bool isset() __attribute__ ((always_inline)) { return (PIN < 16) ? (GPO & MASK) : (GP16O & MASK); }
+
+    inline static constexpr bool validpin() { return true; }
 };
+
+// Forward declaration of FastPin template
+template<uint8_t PIN> class FastPin;
 
 #define _FL_DEFPIN(PIN, REAL_PIN) template<> class FastPin<PIN> : public _ESPPIN<REAL_PIN, (1<<(REAL_PIN & 0x0F))> {};
 
@@ -99,5 +102,4 @@ _FL_DEFPIN(8,15); _FL_DEFPIN(9,3); _FL_DEFPIN(10,1);
 #endif
 
 #define HAS_HARDWARE_PIN_SUPPORT
-
-FASTLED_NAMESPACE_END
+}  // namespace fl

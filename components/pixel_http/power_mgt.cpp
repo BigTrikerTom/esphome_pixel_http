@@ -2,13 +2,12 @@
 /// Functions to limit the power used by FastLED
 
 /// Disables pragma messages and warnings
-#define FASTLED_INTERNAL
-#include "FastLED.h"
-#include "power_mgt.h"
-#include "fl/namespace.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "led_sysdefs.h"      // Must be included first (required by lib8tion.h)
+#include "pixeltypes.h"       // CRGB
+#include "controller.h"       // CLEDController
+#include "fastpin.h"          // Pin
+#include "fl/int.h"           // fl::u32, fl::u8
+#include "power_mgt.h"        // Function declarations (to avoid redefinition errors)
 // POWER MANAGEMENT
 
 /// @name Power Usage Values
@@ -24,14 +23,15 @@ FASTLED_NAMESPACE_BEGIN
 /// However, this is good enough for most cases, and almost certainly better
 /// than no power management at all.
 ///
-/// You're welcome to adjust these values as needed; there may eventually be an API
-/// for changing these on the fly, but it saves codespace and RAM to have them
-/// be compile-time constants.
+/// You can now customize these values using the PowerModel API:
+/// @code
+/// FastLED.setPowerModel(PowerModelRGB(40, 40, 40, 2)); // WS2812B @ 3.3V
+/// @endcode
 /// @{
-static const uint8_t gRed_mW   = 16 * 5; ///< 16mA @ 5v = 80mW
-static const uint8_t gGreen_mW = 11 * 5; ///< 11mA @ 5v = 55mW
-static const uint8_t gBlue_mW  = 15 * 5; ///< 15mA @ 5v = 75mW
-static const uint8_t gDark_mW  =  1 * 5; ///<  1mA @ 5v =  5mW
+
+/// Global RGB power model (initialized to WS2812 @ 5V defaults)
+static PowerModelRGB gPowerModel;  // Uses default constructor: R=80, G=55, B=75, dark=5
+
 /// @}
 
 // Alternate calibration by RAtkins via pre-PSU wattage measurments;
@@ -49,6 +49,7 @@ static const uint8_t gDark_mW  =  1 * 5; ///<  1mA @ 5v =  5mW
 #define POWER_LED 1
 
 /// Debug Option: Set to enable Serial debug statements for power limit functions
+/// @note If you enable this, you'll need to include the appropriate headers for Serial (e.g., Arduino.h)
 #define POWER_DEBUG_PRINT 0
 
 
@@ -74,15 +75,15 @@ uint32_t calculate_unscaled_power_mW( const CRGB* ledbuffer, uint16_t numLeds ) 
         --count;
     }
 
-    red32   *= gRed_mW;
-    green32 *= gGreen_mW;
-    blue32  *= gBlue_mW;
+    red32   *= gPowerModel.red_mW;
+    green32 *= gPowerModel.green_mW;
+    blue32  *= gPowerModel.blue_mW;
 
     red32   >>= 8;
     green32 >>= 8;
     blue32  >>= 8;
 
-    uint32_t total = red32 + green32 + blue32 + (gDark_mW * numLeds);
+    uint32_t total = red32 + green32 + blue32 + (gPowerModel.dark_mW * numLeds);
 
     return total;
 }
@@ -166,31 +167,22 @@ uint8_t calculate_max_brightness_for_power_mW( uint8_t target_brightness, fl::u3
     return recommended_brightness;
 }
 
-
 void set_max_power_indicator_LED( uint8_t pinNumber)
 {
     gMaxPowerIndicatorLEDPinNumber = pinNumber;
 }
 
-void set_max_power_in_volts_and_milliamps( uint8_t volts, uint32_t milliamps)
-{
-    FastLED.setMaxPowerInVoltsAndMilliamps(volts, milliamps);
+void set_power_model(const PowerModelRGB& model) {
+    gPowerModel = model;
 }
 
-void set_max_power_in_milliwatts( uint32_t powerInmW)
-{
-    FastLED.setMaxPowerInMilliWatts(powerInmW);
+PowerModelRGB get_power_model() {
+    return gPowerModel;
 }
 
-void show_at_max_brightness_for_power()
-{
-    // power management usage is now in FastLED.show, no need for this function
-    FastLED.show();
-}
-
-void delay_at_max_brightness_for_power( uint16_t ms)
-{
-    FastLED.delay(ms);
-}
-
-FASTLED_NAMESPACE_END
+// Note: The following deprecated wrapper functions have been moved to FastLED.cpp:
+// - set_max_power_in_volts_and_milliamps()
+// - set_max_power_in_milliwatts()
+// - show_at_max_brightness_for_power()
+// - delay_at_max_brightness_for_power()
+// These functions depend on the FastLED singleton and don't belong in this core power calculation file.

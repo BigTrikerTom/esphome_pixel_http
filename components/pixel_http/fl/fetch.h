@@ -51,17 +51,16 @@
 /// }
 /// @endcode
 
-#include "fl/namespace.h"
 #include "fl/promise.h"
-#include "fl/string.h"
-#include "fl/vector.h"
-#include "fl/map.h"
-#include "fl/hash_map.h"
-#include "fl/optional.h"
-#include "fl/function.h"
-#include "fl/ptr.h"
+#include "fl/stl/string.h"
+#include "fl/stl/vector.h"
+#include "fl/stl/map.h"
+#include "fl/stl/unordered_map.h"
+#include "fl/stl/optional.h"
+#include "fl/stl/function.h"
+#include "fl/stl/shared_ptr.h"
 #include "fl/async.h"
-#include "fl/mutex.h"
+#include "fl/stl/mutex.h"
 #include "fl/warn.h"
 #include "fl/json.h"  // Add JSON support for response.json() method
 
@@ -70,12 +69,12 @@ namespace fl {
 // Forward declarations
 class fetch_options;
 class FetchManager;
+class response;
 
 #ifdef __EMSCRIPTEN__
 // Forward declarations for WASM-specific types (defined in platforms/wasm/js_fetch.h)
 class WasmFetchRequest;
 class WasmFetch;
-using FetchResponseCallback = fl::function<void(const response&)>;
 extern WasmFetch wasm_fetch;
 #endif
 
@@ -164,7 +163,7 @@ private:
         return parsed;
     }
     
-    static fl::string get_default_status_text(int status) {
+    static fl::string get_default_status_text(int status) {  // okay static in header
         switch (status) {
             case 200: return "OK";
             case 400: return "Bad Request";

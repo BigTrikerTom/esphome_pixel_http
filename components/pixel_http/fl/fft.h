@@ -1,10 +1,10 @@
 #pragma once
 
-#include "fl/unique_ptr.h"
-#include "fl/span.h"
-#include "fl/vector.h"
-#include "fl/move.h"
-#include "fl/memfill.h"
+#include "fl/stl/unique_ptr.h"
+#include "fl/stl/span.h"
+#include "fl/stl/vector.h"
+#include "fl/stl/move.h"
+#include "fl/stl/cstring.h"
 
 namespace fl {
 
@@ -77,7 +77,7 @@ struct FFT_Args {
              int sample_rate = DefaultSampleRate()) {
         // Memset so that this object can be hashed without garbage from packed
         // in data.
-        fl::memfill(this, 0, sizeof(FFT_Args));
+        fl::memset(this, 0, sizeof(FFT_Args));
         this->samples = samples;
         this->bands = bands;
         this->fmin = fmin;

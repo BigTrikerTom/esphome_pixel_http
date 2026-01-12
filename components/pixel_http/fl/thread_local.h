@@ -1,10 +1,9 @@
 #pragma once
 
-#include "fl/thread.h"
+#include "fl/stl/thread.h"
 #if FASTLED_USE_THREAD_LOCAL
-#include "fl/hash_map.h"
+#include "fl/stl/unordered_map.h"
 #include <pthread.h>  // ok include
-#include <memory>  // ok include
 #endif
 
 #if FASTLED_USE_THREAD_LOCAL

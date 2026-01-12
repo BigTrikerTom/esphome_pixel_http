@@ -1,20 +1,18 @@
 #pragma once
 
-#include "fl/string.h"
-#include "fl/function.h"
+#include "fl/stl/string.h"
+#include "fl/stl/function.h"
 
 // Forward declaration - fl::response is defined in fl/fetch.h
 namespace fl {
     class response;
+    using FetchResponseCallback = fl::function<void(const response&)>;
 }
 
 namespace fl {
 
 /// Forward declaration for WASM fetch request
 class WasmFetchRequest;
-
-/// Simple fetch response callback type (now uses unified fl::response)
-using FetchResponseCallback = fl::function<void(const response&)>;
 
 /// WASM fetch request object for fluent API
 class WasmFetchRequest {

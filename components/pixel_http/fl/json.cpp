@@ -1,26 +1,18 @@
 
 #include "fl/json.h"
-#include "fl/string.h"
-#include "fl/vector.h"
-#include "fl/deque.h"
-#include "fl/function.h"
+#include "fl/stl/string.h"
+#include "fl/stl/vector.h"
+#include "fl/stl/deque.h"
+#include "fl/stl/function.h"
 #include "fl/sketch_macros.h"
-#include "fl/math.h" // For floor function
+#include "fl/stl/math.h" // For floor function
 #include "fl/compiler_control.h"
 #include "fl/thread_local.h"
+#include "fl/numeric_limits.h"
 
-// Define INT16_MIN, INT16_MAX, and UINT8_MAX if not already defined
-#ifndef INT16_MIN
-#define INT16_MIN (-32768)
-#endif
-
-#ifndef INT16_MAX
-#define INT16_MAX 32767
-#endif
-
-#ifndef UINT8_MAX
-#define UINT8_MAX 255
-#endif
+// fl::numeric_limits<i16>::min(), fl::numeric_limits<i16>::max(), and fl::numeric_limits<u8>::max() should come from the platform's
+// <stdint.h> or <cstdint> headers (via fl/stl/stdint.h).
+// FastLED no longer defines these macros to avoid conflicts with system headers.
 
 
 #if FASTLED_ENABLE_JSON
@@ -68,14 +60,13 @@ FL_DISABLE_WARNING_POP
 
 
 JsonValue& get_null_value() {
-    static ThreadLocal<JsonValue> null_value;
-    return null_value.access();
+    static JsonValue null_value;
+    return null_value;
 }
 
 JsonObject& get_empty_json_object() {
-    // thread_local JsonObject empty_object;
-    static ThreadLocal<JsonObject> empty_object;
-    return empty_object.access();
+    static JsonObject empty_object;
+    return empty_object;
 }
 
 fl::shared_ptr<JsonValue> JsonValue::parse(const fl::string& txt) {
@@ -88,7 +79,8 @@ fl::shared_ptr<JsonValue> JsonValue::parse(const fl::string& txt) {
     FLArduinoJson::DeserializationError error = FLArduinoJson::deserializeJson(doc, txt.c_str());
 
     if (error) {
-        FL_WARN("JSON parsing failed: " << error.c_str());
+        const char* errorMsg = error.c_str();
+        FL_WARN("JSON parsing failed: " << (errorMsg ? errorMsg : "<null error message>"));
         return fl::make_shared<JsonValue>(nullptr); // Return null on error
     }
 
@@ -147,10 +139,10 @@ fl::shared_ptr<JsonValue> JsonValue::parse(const fl::string& txt) {
                     void checkNumericValue(double val) {
                         // Check integer ranges in one pass
                         bool isInteger = val == floor(val);
-                        if (!isInteger || val < 0 || val > UINT8_MAX) {
+                        if (!isInteger || val < 0 || val > fl::numeric_limits<u8>::max()) {
                             isUint8 = false;
                         }
-                        if (!isInteger || val < INT16_MIN || val > INT16_MAX) {
+                        if (!isInteger || val < fl::numeric_limits<i16>::min() || val > fl::numeric_limits<i16>::max()) {
                             isInt16 = false;
                         }
                         if (!canBeRepresentedAsFloat(val)) {
@@ -160,10 +152,10 @@ fl::shared_ptr<JsonValue> JsonValue::parse(const fl::string& txt) {
                     
                     void checkIntegerValue(int64_t val) {
                         // Check all ranges in one pass
-                        if (val < 0 || val > UINT8_MAX) {
+                        if (val < 0 || val > fl::numeric_limits<u8>::max()) {
                             isUint8 = false;
                         }
-                        if (val < INT16_MIN || val > INT16_MAX) {
+                        if (val < fl::numeric_limits<i16>::min() || val > fl::numeric_limits<i16>::max()) {
                             isInt16 = false;
                         }
                         if (val < -16777216 || val > 16777216) {

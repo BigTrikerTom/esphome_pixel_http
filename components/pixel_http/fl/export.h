@@ -38,3 +38,5 @@
 
 /// Combined export and calling convention macro
 #define FASTLED_API FASTLED_EXPORT FASTLED_CALL
+
+// FL_KEEP_ALIVE is now defined in fl/compiler_control.h

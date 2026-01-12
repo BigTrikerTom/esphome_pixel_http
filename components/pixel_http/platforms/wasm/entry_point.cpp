@@ -33,9 +33,8 @@
 // #include "frame_buffer_manager.h"  // Temporarily commented for testing
 #include "fl/async.h"
 #include "fl/dbg.h"
-#include "fl/namespace.h"
 #include "fl/warn.h"
-#include <stdio.h>
+#include <stdio.h> // ok include
 
 // Forward declarations for Arduino-style setup/loop functions
 // These will be provided by the user's sketch
@@ -78,8 +77,8 @@ void fastled_setup_once() {
     EngineListener::Init();
     EngineEvents::addListener(&gEndFrameListener);
     
-    // Note: Thread-safe frame buffer manager not needed in WASM single-threaded environment
-    // Using existing ActiveStripData system for frame data management
+    // Note: Using ActiveStripData system for frame data management
+    // WASM inherits stub platform's threading profile (defers to FASTLED_TESTING + pthread.h detection)
     
     printf("FastLED WASM: Calling user setup()...\n");
     
@@ -137,10 +136,10 @@ int main() {
     while (true) {
         // Platform pump for async operations - update all async tasks
         fl::async_run();
-        
-        // Yield control to the browser more frequently for responsive async processing
-        // Use 1ms sleep to maintain responsiveness while allowing other threads to work
-        emscripten_sleep(1); // 1ms - frequent yielding for async pump
+
+        // Note: No emscripten_sleep needed in worker thread mode (PROXY_TO_PTHREAD).
+        // The OS scheduler naturally handles yielding, and the browser UI remains responsive
+        // since we're running on a dedicated background thread, not the main thread.
     }
     
     return 0; // Never reached

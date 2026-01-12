@@ -1,3 +1,4 @@
+// ok no namespace fl
 #ifndef __INC_LED_SYSDEFS_STUB_H
 #define __INC_LED_SYSDEFS_STUB_H
 
@@ -5,7 +6,7 @@
 #define FASTLED_STUB_IMPL
 #endif
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
 #ifndef F_CPU
 #define F_CPU 1000000000
@@ -22,6 +23,9 @@
 #define FASTLED_USE_PROGMEM 0
 #define INTERRUPT_THRESHOLD 0
 
+#ifndef FASTLED_NO_ARDUINO_STUBS
+// Arduino pin and register macros - excluded when FASTLED_NO_ARDUINO_STUBS is defined
+// (for compatibility with ArduinoFake and other Arduino mock frameworks)
 #define digitalPinToBitMask(P) ( 0 )
 #define digitalPinToPort(P) ( 0 )
 #define portOutputRegister(P) ( 0 )
@@ -61,5 +65,6 @@ extern "C" {
     void delay(int ms);
     void yield(void);
 }
+#endif // FASTLED_NO_ARDUINO_STUBS
 
 #endif // __INC_LED_SYSDEFS_STUB_H

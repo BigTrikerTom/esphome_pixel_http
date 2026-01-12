@@ -1,8 +1,9 @@
 
+// ok no namespace fl
 #ifdef FASTLED_STUB_IMPL  // Only use this if explicitly defined.
 
 #include "time_stub.h"
-#include "fl/function.h"
+#include "fl/stl/function.h"
 #include <chrono>
 #include <thread>
 
@@ -12,25 +13,26 @@
 #include <sched.h>
 #endif
 
-static auto start_time = std::chrono::system_clock::now();
+static auto start_time = std::chrono::system_clock::now();  // okay std namespace
 
 // Global delay function override for fast testing
 static fl::function<void(uint32_t)> g_delay_override;
 
 extern "C" {
 
-#ifndef __EMSCRIPTEN__
+#if !defined(__EMSCRIPTEN__) && !defined(FASTLED_NO_ARDUINO_STUBS)
 // STUB timing functions - excluded for WASM builds which provide their own implementations
 // WASM timing functions are in src/platforms/wasm/timer.cpp and src/platforms/wasm/js.cpp
+// Also excluded when FASTLED_NO_ARDUINO_STUBS is defined (for compatibility with ArduinoFake, etc.)
 
 uint32_t millis() {
-    auto current_time = std::chrono::system_clock::now();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
+    auto current_time = std::chrono::system_clock::now();  // okay std namespace
+    return std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();  // okay std namespace
 }
 
 uint32_t micros() {
-    auto current_time = std::chrono::system_clock::now();
-    return std::chrono::duration_cast<std::chrono::microseconds>(current_time - start_time).count();
+    auto current_time = std::chrono::system_clock::now();  // okay std namespace
+    return std::chrono::duration_cast<std::chrono::microseconds>(current_time - start_time).count();  // okay std namespace
 }
 
 void delay(int ms) {
@@ -54,14 +56,14 @@ void delay(int ms) {
     }
 #else
     if (ms > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));  // okay std namespace
     }
 #endif
 }
 
 void delayMicroseconds(int us) {
     if (us > 0) {
-        std::this_thread::sleep_for(std::chrono::microseconds(us));
+        std::this_thread::sleep_for(std::chrono::microseconds(us));  // okay std namespace
     }
 }
 
@@ -70,11 +72,11 @@ void yield() {
     // POSIX thread yield to allow other threads to run
     sched_yield();
 #else
-    std::this_thread::yield();
+    std::this_thread::yield();  // okay std namespace
 #endif
 }
 
-#endif // __EMSCRIPTEN__
+#endif // !__EMSCRIPTEN__ && !FASTLED_NO_ARDUINO_STUBS
 
 } // extern "C"
 

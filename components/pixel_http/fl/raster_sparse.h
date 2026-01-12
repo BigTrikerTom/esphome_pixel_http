@@ -7,21 +7,18 @@ not allocate memory for the entire grid. This is useful for large grids where
 only a small number of pixels are set.
 */
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
 #include "fl/int.h"
 #include "fl/geometry.h"
 #include "fl/grid.h"
-#include "fl/hash_map.h"
-#include "fl/map.h"
-#include "fl/namespace.h"
-#include "fl/span.h"
+#include "fl/stl/unordered_map.h"
+#include "fl/stl/map.h"
+#include "fl/stl/span.h"
 #include "fl/tile2x2.h"
 #include "fl/xymap.h"
 
-FASTLED_NAMESPACE_BEGIN
-struct CRGB;
-FASTLED_NAMESPACE_END
+#include "crgb.h"
 
 #ifndef FASTLED_RASTER_SPARSE_INLINED_COUNT
 #define FASTLED_RASTER_SPARSE_INLINED_COUNT 128
@@ -74,8 +71,8 @@ class XYRasterU8Sparse {
         mAbsoluteBoundsSet = true;
     }
 
-    using iterator = fl::HashMap<vec2<u16>, u8>::iterator;
-    using const_iterator = fl::HashMap<vec2<u16>, u8>::const_iterator;
+    using iterator = fl::unordered_map<vec2<u16>, u8>::iterator;
+    using const_iterator = fl::unordered_map<vec2<u16>, u8>::const_iterator;
 
     iterator begin() { return mSparseGrid.begin(); }
     const_iterator begin() const { return mSparseGrid.begin(); }
@@ -218,11 +215,11 @@ class XYRasterU8Sparse {
     using HashKey = Hash<Key>;
     using EqualToKey = EqualTo<Key>;
     using FastHashKey = FastHash<Key>;
-    using HashMapLarge = fl::HashMap<Key, Value, HashKey, EqualToKey,
+    using HashMapLarge = fl::unordered_map<Key, Value, HashKey, EqualToKey,
                                      FASTLED_HASHMAP_INLINED_COUNT>;
     HashMapLarge mSparseGrid;
     // Small cache for the last N writes to help performance.
-    HashMap<vec2<u16>, u8 *, FastHashKey, EqualToKey, kMaxCacheSize>
+    unordered_map<vec2<u16>, u8 *, FastHashKey, EqualToKey, kMaxCacheSize>
         mCache;
     fl::rect<u16> mAbsoluteBounds;
     bool mAbsoluteBoundsSet = false;
@@ -234,24 +231,24 @@ namespace fl {
 
 // A raster of CRGB values. This is a sparse raster, meaning that it will
 // only store the values that are set.
-class XYRasterSparse_CRGB {
+class XYRasterSparse_RGB8 {
   public:
-    XYRasterSparse_CRGB() = default;
-    XYRasterSparse_CRGB(u16 width, u16 height) {
+    XYRasterSparse_RGB8() = default;
+    XYRasterSparse_RGB8(u16 width, u16 height) {
         setBounds(rect<u16>(0, 0, width, height));
     }
-    XYRasterSparse_CRGB(const XYRasterSparse_CRGB &) = default;
-    XYRasterSparse_CRGB &operator=(XYRasterSparse_CRGB &&) = default;
-    XYRasterSparse_CRGB(XYRasterSparse_CRGB &&) = default;
-    XYRasterSparse_CRGB &operator=(XYRasterSparse_CRGB &) = default;
+    XYRasterSparse_RGB8(const XYRasterSparse_RGB8 &) = default;
+    XYRasterSparse_RGB8 &operator=(XYRasterSparse_RGB8 &&) = default;
+    XYRasterSparse_RGB8(XYRasterSparse_RGB8 &&) = default;
+    XYRasterSparse_RGB8 &operator=(XYRasterSparse_RGB8 &) = default;
 
-    XYRasterSparse_CRGB &reset() {
+    XYRasterSparse_RGB8 &reset() {
         mSparseGrid.clear();
         mCache.clear();
         return *this;
     }
 
-    XYRasterSparse_CRGB &clear() { return reset(); }
+    XYRasterSparse_RGB8 &clear() { return reset(); }
 
     // Rasterizes point with a CRGB color value
     void rasterize(const vec2<u16> &pt, const CRGB &color) {
@@ -267,8 +264,8 @@ class XYRasterSparse_CRGB {
         mAbsoluteBoundsSet = true;
     }
 
-    using iterator = fl::HashMap<vec2<u16>, CRGB>::iterator;
-    using const_iterator = fl::HashMap<vec2<u16>, CRGB>::const_iterator;
+    using iterator = fl::unordered_map<vec2<u16>, CRGB>::iterator;
+    using const_iterator = fl::unordered_map<vec2<u16>, CRGB>::const_iterator;
 
     iterator begin() { return mSparseGrid.begin(); }
     const_iterator begin() const { return mSparseGrid.begin(); }
@@ -387,14 +384,17 @@ class XYRasterSparse_CRGB {
     using HashKey = Hash<Key>;
     using EqualToKey = EqualTo<Key>;
     using FastHashKey = FastHash<Key>;
-    using HashMapLarge = fl::HashMap<Key, Value, HashKey, EqualToKey,
+    using HashMapLarge = fl::unordered_map<Key, Value, HashKey, EqualToKey,
                                      FASTLED_HASHMAP_INLINED_COUNT>;
     HashMapLarge mSparseGrid;
     // Small cache for the last N writes to help performance.
-    HashMap<vec2<u16>, CRGB *, FastHashKey, EqualToKey, kMaxCacheSize>
+    unordered_map<vec2<u16>, CRGB *, FastHashKey, EqualToKey, kMaxCacheSize>
         mCache;
     fl::rect<u16> mAbsoluteBounds;
     bool mAbsoluteBoundsSet = false;
 };
+
+// Backwards compatibility typedef
+using XYRasterSparse_CRGB = XYRasterSparse_RGB8;
 
 } // namespace fl

@@ -6,18 +6,25 @@
 
 #include "fl/screenmap.h"
 
-#include "fl/json.h"
-#include "fl/map.h"
-#include "fl/math.h"
+// Heavy includes moved from header to reduce compilation time
+#include "fl/lut.h"       // Full LUT definitions needed for implementation
+#include "fl/json.h"      // 61.1ms - only needed for ParseJson/toJson implementations
+#include "fl/str.h"       // 129.4ms - only needed for string parameters in implementations
+#include "fl/stl/map.h"       // 12.4ms - only needed for fl_map parameters in implementations
+#include "fl/stl/function.h"  // ~5ms - only needed for function<> constructor implementation
+
+// Other implementation dependencies
+#include "fl/stl/math.h"
 #include "fl/math_macros.h"
-#include "fl/namespace.h"
-#include "fl/screenmap.h"
-#include "fl/str.h"
-#include "fl/vector.h"
+#include "fl/stl/vector.h"
 #include "fl/warn.h"
 
 
 namespace fl {
+
+// Default constructor and destructor - must be in .cpp for proper smart_ptr handling
+ScreenMap::ScreenMap() = default;
+ScreenMap::~ScreenMap() = default;
 
 // Helper function to extract a vector of floats from a JSON array
 fl::vector<float> jsonArrayToFloatVector(const fl::Json& jsonArray) {
@@ -55,14 +62,14 @@ ScreenMap ScreenMap::Circle(int numLeds, float cm_between_leds,
 
     // radius from LED spacing
     float circumference = numLeds * cm_between_leds;
-    float radius = circumference / (2 * PI);
+    float radius = circumference / (2 * FL_PI);
 
     // how big an arc we light vs leave dark
-    float totalAngle = completion * 2 * PI;
-    float gapAngle = 2 * PI - totalAngle;
+    float totalAngle = completion * 2 * FL_PI;
+    float gapAngle = 2 * FL_PI - totalAngle;
 
     // shift so the dark gap is centered at the bottom (–π/2)
-    float startAngle = -PI / 2 + gapAngle / 2.0f;
+    float startAngle = -FL_PI / 2 + gapAngle / 2.0f;
 
     // if partial, land last LED exactly at startAngle+totalAngle
     float divisor =
@@ -77,6 +84,11 @@ ScreenMap ScreenMap::Circle(int numLeds, float cm_between_leds,
 
     screenMap.setDiameter(cm_led_diameter);
     return screenMap;
+}
+
+ScreenMap ScreenMap::DefaultStrip(int numLeds, float cm_between_leds,
+                                  float cm_led_diameter, float completion) {
+    return Circle(numLeds, cm_between_leds, cm_led_diameter, completion);
 }
 
 bool ScreenMap::ParseJson(const char *jsonStrScreenMap,
@@ -196,7 +208,7 @@ bool ScreenMap::ParseJson(const char *jsonStrScreenMap,
             }
         }
 
-        auto n = MIN(x_array.size(), y_array.size());
+        auto n = FL_MIN(x_array.size(), y_array.size());
         if (n != x_array.size() || n != y_array.size()) {
             if (n != x_array.size()) {
             }
@@ -329,6 +341,18 @@ ScreenMap::ScreenMap(const vec2f *lut, u32 length, float diameter)
     }
 }
 
+ScreenMap::ScreenMap(int count, float diameter, fl::function<void(int, vec2f& pt_out)> func)
+    : length(count), mDiameter(diameter) {
+    if (count > 0) {
+        mLookUpTable = fl::make_shared<LUTXYFLOAT>(count);
+        LUTXYFLOAT &lut = *mLookUpTable.get();
+        vec2f *data = lut.getDataMutable();
+        for (int i = 0; i < count; i++) {
+            func(i, data[i]);
+        }
+    }
+}
+
 ScreenMap::ScreenMap(const ScreenMap &other) {
     mDiameter = other.mDiameter;
     length = other.length;
@@ -385,10 +409,10 @@ vec2f ScreenMap::getBounds() const {
 
     for (u32 i = 1; i < length; i++) {
         const vec2f &p = lut[i];
-        minX = MIN(minX, p.x);
-        maxX = MAX(maxX, p.x);
-        minY = MIN(minY, p.y);
-        maxY = MAX(maxY, p.y);
+        minX = FL_MIN(minX, p.x);
+        maxX = FL_MAX(maxX, p.x);
+        minY = FL_MIN(minY, p.y);
+        maxY = FL_MAX(maxY, p.y);
     }
 
     return {maxX - minX, maxY - minY};
@@ -445,7 +469,7 @@ void ScreenMap::addOffset(const vec2f &p) {
     }
 }
 
-void ScreenMap::addOffsetX(float x) { addOffset({x, 0}); }
-void ScreenMap::addOffsetY(float y) { addOffset({0, y}); }
+ScreenMap& ScreenMap::addOffsetX(float x) { addOffset({x, 0}); return *this; }
+ScreenMap& ScreenMap::addOffsetY(float y) { addOffset({0, y}); return *this; }
 
 } // namespace fl

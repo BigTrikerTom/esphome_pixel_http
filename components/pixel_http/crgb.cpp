@@ -3,17 +3,16 @@
 
 #define FASTLED_INTERNAL
 #include "crgb.h"
-#include "FastLED.h"
+#include "fl/fastled.h"
 #include "fl/xymap.h"
 
 #include "fl/upscale.h"
 #include "fl/downscale.h"
 #include "lib8tion/math8.h"
 
-#include "fl/namespace.h"
 #include "fl/int.h"
 
-FASTLED_NAMESPACE_BEGIN
+
 
 fl::string CRGB::toString() const {
     fl::string out;
@@ -53,8 +52,8 @@ CRGB CRGB::computeAdjustment(uint8_t scale, const CRGB &colorCorrection,
 }
 
 CRGB CRGB::blend(const CRGB &p1, const CRGB &p2, fract8 amountOfP2) {
-    return CRGB(blend8(p1.r, p2.r, amountOfP2), blend8(p1.g, p2.g, amountOfP2),
-                blend8(p1.b, p2.b, amountOfP2));
+    return CRGB(fl::blend8(p1.r, p2.r, amountOfP2), fl::blend8(p1.g, p2.g, amountOfP2),
+                fl::blend8(p1.b, p2.b, amountOfP2));
 }
 
 CRGB CRGB::blendAlphaMaxChannel(const CRGB &upper, const CRGB &lower) {
@@ -93,9 +92,9 @@ CRGB &CRGB::nscale8(uint8_t scaledown) {
 
 /// Add one CRGB to another, saturating at 0xFF for each channel
 CRGB &CRGB::operator+=(const CRGB &rhs) {
-    r = qadd8(r, rhs.r);
-    g = qadd8(g, rhs.g);
-    b = qadd8(b, rhs.b);
+    r = fl::qadd8(r, rhs.r);
+    g = fl::qadd8(g, rhs.g);
+    b = fl::qadd8(b, rhs.b);
     return *this;
 }
 
@@ -114,4 +113,3 @@ CRGB &CRGB::fadeToBlackBy(uint8_t fadefactor) {
     return *this;
 }
 
-FASTLED_NAMESPACE_END

@@ -2,9 +2,8 @@
 #define __FASTPIN_ARM_KL26_H
 
 #include "fl/force_inline.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/fastpin_base.h"
+namespace fl {
 #if defined(FASTLED_FORCE_SOFTWARE_PINS)
 #warning "Software pin support forced, pin access will be sloightly slower."
 #define NO_HARDWARE_PIN_SUPPORT
@@ -17,7 +16,7 @@ FASTLED_NAMESPACE_BEGIN
 /// uses the full port GPIO registers.  In theory, in some way, bit-band register access -should- be faster, however I have found
 /// that something about the way gcc does register allocation results in the bit-band code being slower.  It will need more fine tuning.
 /// The registers are data output, set output, clear output, toggle output, input, and direction
-template<uint8_t PIN, uint32_t _MASK, typename _PDOR, typename _PSOR, typename _PCOR, typename _PTOR, typename _PDIR, typename _PDDR> class _ARMPIN {
+template<uint8_t PIN, uint32_t _MASK, typename _PDOR, typename _PSOR, typename _PCOR, typename _PTOR, typename _PDIR, typename _PDDR> class _ARMPIN : public ValidPinBase {
 public:
   typedef volatile uint32_t * port_ptr_t;
   typedef uint32_t port_t;
@@ -84,7 +83,5 @@ _FL_DEFPIN(24, 20, E); _FL_DEFPIN(25, 21, E); _FL_DEFPIN(26, 30, E);
 #endif
 
 #endif // FASTLED_FORCE_SOFTWARE_PINS
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif // __INC_FASTPIN_ARM_K20

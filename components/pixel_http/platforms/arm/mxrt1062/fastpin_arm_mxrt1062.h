@@ -2,9 +2,8 @@
 #define __FASTPIN_ARM_MXRT1062_H
 
 #include "fl/force_inline.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/fastpin_base.h"
+namespace fl {
 #if defined(FASTLED_FORCE_SOFTWARE_PINS)
 #warning "Software pin support forced, pin access will be slightly slower."
 #define NO_HARDWARE_PIN_SUPPORT
@@ -15,7 +14,7 @@ FASTLED_NAMESPACE_BEGIN
 /// Template definition for teensy 4.0 style ARM pins, providing direct access to the various GPIO registers.  Note that this
 /// uses the full port GPIO registers.  It calls through to pinMode for setting input/output on pins
 /// The registers are data output, set output, clear output, toggle output, input, and direction
-template<uint8_t PIN, uint32_t _BIT, uint32_t _MASK, typename _GPIO_DR, typename _GPIO_DR_SET, typename _GPIO_DR_CLEAR, typename _GPIO_DR_TOGGLE> class _ARMPIN {
+template<uint8_t PIN, uint32_t _BIT, uint32_t _MASK, typename _GPIO_DR, typename _GPIO_DR_SET, typename _GPIO_DR_CLEAR, typename _GPIO_DR_TOGGLE> class _ARMPIN : public ValidPinBase {
 public:
 	typedef volatile uint32_t * port_ptr_t;
 	typedef uint32_t port_t;
@@ -87,7 +86,5 @@ _FL_DEFPIN(36,13,8); _FL_DEFPIN(37,12,8); _FL_DEFPIN(38,17,8); _FL_DEFPIN(39,16,
 #endif // defined FASTLED_TEENSY4
 
 #endif // FASTLED_FORCE_SOFTWARE_PINSs
-
-FASTLED_NAMESPACE_END
-
+}  // namespace fl
 #endif

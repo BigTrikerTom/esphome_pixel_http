@@ -1,10 +1,11 @@
 #pragma once
 
-#include "fl/slice.h"
+// DEPRECATED: This file location is deprecated
+// Use "fl/stl/span.h" instead of "fl/span.h"
+// This stub exists for backward compatibility only
 
-namespace fl {
+#if defined(__GNUC__) || defined(__clang__)
+#warning "fl/span.h is deprecated, use fl/stl/span.h instead"
+#endif
 
-template<typename T>
-using span = Slice<T>;
-
-};
+#include "fl/stl/span.h"

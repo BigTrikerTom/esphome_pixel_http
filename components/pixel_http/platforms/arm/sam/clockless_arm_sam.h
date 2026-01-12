@@ -1,21 +1,30 @@
 #ifndef __INC_CLOCKLESS_ARM_SAM_H
 #define __INC_CLOCKLESS_ARM_SAM_H
 
-FASTLED_NAMESPACE_BEGIN
+// SAM/Due platform: Set this FIRST before any includes to prevent generic controller alias
+#if defined(__SAM3X8E__)
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
+#endif
 
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
+namespace fl {
 // Definition for a single channel clockless controller for the sam family of arm chips, like that used in the due and rfduino
 // See clockless.h for detailed info on how the template parameters are used.
 
 #if defined(__SAM3X8E__)
 
-
-#define TADJUST 0
-#define TOTAL ( (T1+TADJUST) + (T2+TADJUST) + (T3+TADJUST) )
-
-#define FASTLED_HAS_CLOCKLESS 1
-
-template <uint8_t DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
-class ClocklessController : public CPixelLEDController<RGB_ORDER> {
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+class ClocklessSAMHardware : public CPixelLEDController<RGB_ORDER> {
+	// Extract timing values from ChipsetTiming struct and convert from nanoseconds to clock cycles
+	// Formula: cycles = (nanoseconds * CPU_MHz + 500) / 1000
+	// The +500 provides rounding to nearest integer
+	// SAM Due uses hardware timer at F_CPU (84MHz)
+	static constexpr uint32_t T1 = (TIMING::T1 * (F_CPU / 1000000UL) + 500) / 1000;
+	static constexpr uint32_t T2 = (TIMING::T2 * (F_CPU / 1000000UL) + 500) / 1000;
+	static constexpr uint32_t T3 = (TIMING::T3 * (F_CPU / 1000000UL) + 500) / 1000;
+	#define TADJUST 0
+	#define TOTAL ( (T1+TADJUST) + (T2+TADJUST) + (T3+TADJUST) )
 	typedef typename FastPinBB<DATA_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPinBB<DATA_PIN>::port_t data_t;
 
@@ -115,8 +124,11 @@ protected:
 	}
 };
 
-#endif
+// Make ClocklessSAMHardware the default ClocklessController for SAM platforms
+template <int DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 0>
+using ClocklessController = ClocklessSAMHardware<DATA_PIN, TIMING, RGB_ORDER, XTRA0, FLIP, WAIT_TIME>;
 
-FASTLED_NAMESPACE_END
+#endif  // defined(__SAM3X8E__)
 
-#endif
+}  // namespace fl
+#endif  // __INC_CLOCKLESS_ARM_SAM_H

@@ -12,18 +12,17 @@
 
 #pragma once
 
-#include <stdint.h>
+#include "fl/stl/stdint.h"
 
 // Include Silicon Labs EMLIB GPIO for direct register access
 #include "em_gpio.h"
 #include "em_cmu.h"
 
+#include "led_sysdefs.h"
 #include "fl/force_inline.h"
-#include "fl/namespace.h"
 #include "fl/unused.h"
-
-FASTLED_NAMESPACE_BEGIN
-
+#include "fl/fastpin_base.h"
+namespace fl {
 /// Forward declaration of base FastPin template
 template<uint8_t PIN> class FastPin;
 
@@ -53,7 +52,7 @@ struct __generated_struct_GPIO_PORT_D {
 /// @tparam _PORT_STRUCT Port accessor structure (e.g., __generated_struct_GPIO_PORT_A)
 /// @tparam _PORT_NUMBER Port number (0=A, 1=B, 2=C, 3=D)
 /// @tparam _PIN_NUMBER Pin number within the port (0-7 typically)
-template<uint32_t _MASK, typename _PORT_STRUCT, uint8_t _PORT_NUMBER, uint8_t _PIN_NUMBER> class _ARMPIN {
+template<uint32_t _MASK, typename _PORT_STRUCT, uint8_t _PORT_NUMBER, uint8_t _PIN_NUMBER> class _ARMPIN : public ValidPinBase {
 public:
     typedef volatile uint32_t * port_ptr_t;
     typedef uint32_t port_t;
@@ -188,5 +187,4 @@ _FL_DEFPIN(24, 2, D, (1 << 2));   // D24 - PD02
 _FL_DEFPIN(25, 3, D, (1 << 3));   // D25 - PD03
 
 #define HAS_HARDWARE_PIN_SUPPORT
-
-FASTLED_NAMESPACE_END
+}  // namespace fl

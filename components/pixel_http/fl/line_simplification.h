@@ -13,13 +13,16 @@ threshold. The first version is much faster and should be used in most cases.
 
 */
 
-#include "fl/bitset.h"
-#include "fl/math.h"
+#include "fl/stl/bitset.h"
+#include "fl/stl/math.h"
 #include "fl/math_macros.h"
-#include "fl/pair.h"
-#include "fl/point.h"
-#include "fl/span.h"
-#include "fl/vector.h"
+#include "fl/stl/pair.h"
+#include "fl/geometry.h"
+#include "fl/slice.h"
+#include "fl/stl/new.h"
+#include "fl/stl/vector.h"
+#include "fl/stl/move.h"
+#include "fl/int.h"
 
 namespace fl {
 
@@ -33,7 +36,7 @@ template <typename NumberT = float> class LineSimplifier {
     using Point = fl::vec2<NumberT>;
     using VectorPoint = fl::vector<Point>;
 
-    LineSimplifier() : mMinDistance(EPSILON_F) {}
+    LineSimplifier() : mMinDistance(FL_EPSILON_F) {}
     LineSimplifier(const LineSimplifier &other) = default;
     LineSimplifier &operator=(const LineSimplifier &other) = default;
     LineSimplifier(LineSimplifier &&other) = default;
@@ -66,7 +69,7 @@ template <typename NumberT = float> class LineSimplifier {
         VectorType &poly = *_poly;
         keep.assign(poly.size(), 1);
         const int n = poly.size();
-        NumberT bestErr = INFINITY_DOUBLE;
+        NumberT bestErr = FL_INFINITY_DOUBLE;
         int bestIdx = -1;
 
         // scan all interior “alive” points

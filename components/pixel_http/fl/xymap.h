@@ -1,15 +1,13 @@
 #pragma once
 
 #include "fl/int.h"
-#include "fl/namespace.h"
 #include "fl/force_inline.h"
-#include "fl/pair.h"
-#include <string.h>
+#include "fl/stl/pair.h"
 
 #include "crgb.h"
 #include "fl/clamp.h"
 #include "fl/lut.h"
-#include "fl/memory.h"
+#include "fl/stl/shared_ptr.h"         // For FASTLED_SHARED_PTR macros
 #include "fl/deprecated.h"
 #include "fl/xmap.h" // Include xmap.h for LUT16
 

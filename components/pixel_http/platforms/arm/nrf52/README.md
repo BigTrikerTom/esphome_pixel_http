@@ -10,6 +10,7 @@ Nordic nRF52 family support.
 - `arbiter_nrf52.h`: PWM arbitration utility (selects/guards PWM instances for drivers).
 - `led_sysdefs_arm_nrf52.h`: System defines for nRF52.
 
+
 Notes:
 - Requires `CLOCKLESS_FREQUENCY` definition in many setups; PWM resources may be shared and must be arbitrated.
  - `arbiter_nrf52.h` exposes a small API to acquire/release PWM instances safely across users; ensure ISR handlers are lightweight.
@@ -27,3 +28,9 @@ Notes:
 - **`FASTLED_NRF52_SUPPRESS_UNTESTED_BOARD_WARNING`**: Suppress pin-map warnings for unverified boards.
 
 Define before including `FastLED.h`.
+
+### References
+
+- Adafruit thread-safe malloc issue: https://github.com/adafruit/Adafruit_nRF52_Arduino/issues/35
+- Platform.txt with --wrap flags: https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/master/platform.txt
+- GCC --wrap documentation: https://sourceware.org/binutils/docs/ld/Options.html

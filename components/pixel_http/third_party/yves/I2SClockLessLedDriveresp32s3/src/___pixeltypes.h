@@ -1,8 +1,8 @@
-#include "fl/stdint.h"
-#include <string.h>
+#include "fl/stl/stdint.h"
+#include "fl/stl/string.h"
 
 #ifdef USE_FASTLED
-#include "FastLED.h"
+#include "fl/fastled.h"
 #endif
 // #include "Arduino.h"
 

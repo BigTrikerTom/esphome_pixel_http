@@ -12,20 +12,19 @@ Based on works and code by Shawn Silverman.
 
 #pragma once
 
-#include "fl/stdint.h"
+#include "fl/stl/stdint.h"
 
-#include "fl/math_macros.h" // if needed for MAX/MIN macros
-#include "fl/namespace.h"
-#include "fl/unique_ptr.h"
+#include "fl/math_macros.h" // if needed for MAX/FL_MIN macros
+#include "fl/stl/unique_ptr.h"
 #include "fl/warn.h"
 #include "fl/wave_simulation_real.h"
 
 #include "fl/grid.h"
-#include "fl/memory.h"
+#include "fl/stl/unique_ptr.h"  // For unique_ptr
 #include "fl/supersample.h"
 #include "fl/xymap.h"
-#include "fx/fx.h"
-#include "fx/fx2d.h"
+#include "fl/fx/fx.h"
+#include "fl/fx/fx2d.h"
 #include "fl/int.h"
 
 namespace fl {

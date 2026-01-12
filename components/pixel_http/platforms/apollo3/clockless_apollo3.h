@@ -1,7 +1,15 @@
 #ifndef __INC_CLOCKLESS_APOLLO3_H
 #define __INC_CLOCKLESS_APOLLO3_H
 
-FASTLED_NAMESPACE_BEGIN
+#include "fl/chipsets/timing_traits.h"
+#include "fastled_delay.h"
+
+// Include Arduino core to get Apollo3 HAL function declarations
+#ifdef ARDUINO
+#include "Arduino.h"
+#endif
+
+namespace fl {
 
 #if defined(FASTLED_APOLLO3)
 
@@ -24,12 +32,22 @@ __attribute__ ((always_inline)) inline static uint32_t __am_hal_systick_count() 
 	return SysTick->VAL;
 }
 
-#define FASTLED_HAS_CLOCKLESS 1
+#define FL_CLOCKLESS_CONTROLLER_DEFINED 1
 
-template <uint8_t DATA_PIN, int T1, int T2, int T3, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
+template <uint8_t DATA_PIN, typename TIMING, EOrder RGB_ORDER = RGB, int XTRA0 = 0, bool FLIP = false, int WAIT_TIME = 280>
 class ClocklessController : public CPixelLEDController<RGB_ORDER> {
 	typedef typename FastPin<DATA_PIN>::port_ptr_t data_ptr_t;
 	typedef typename FastPin<DATA_PIN>::port_t data_t;
+
+	// Extract timing values from struct and convert from nanoseconds to clock cycles
+	// Formula: cycles = (nanoseconds * CPU_MHz + 500) / 1000
+	// The +500 provides rounding to nearest integer
+	// Apollo3 uses SysTick at F_CPU (48MHz by default)
+	enum : uint32_t {
+		T1 = (TIMING::T1 * (F_CPU / 1000000UL) + 500) / 1000,
+		T2 = (TIMING::T2 * (F_CPU / 1000000UL) + 500) / 1000,
+		T3 = (TIMING::T3 * (F_CPU / 1000000UL) + 500) / 1000
+	};
 
   	CMinWait<WAIT_TIME> mWait;
 
@@ -179,6 +197,6 @@ protected:
 
 #endif
 
-FASTLED_NAMESPACE_END
+}  // namespace fl
 
 #endif

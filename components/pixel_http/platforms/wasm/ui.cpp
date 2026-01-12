@@ -56,7 +56,7 @@ static bool& getUiSystemInitialized() {
 
 // Add a periodic check function that can be called from JavaScript
 extern "C" void checkUpdateEngineState() {
-    FL_WARN("*** ASYNC PERIODIC CHECK: g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "NULL"));
+    FL_WARN("*** ASYNC PERIODIC CHECK: g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "nullptr"));
     FL_WARN("*** ASYNC PERIODIC CHECK: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false"));
 }
 
@@ -64,11 +64,11 @@ extern "C" void checkUpdateEngineState() {
  * Async-aware UI component updater
  * Now handles async operations and provides better error handling
  */
-void jsUpdateUiComponents(const std::string &jsonStr) {
+void jsUpdateUiComponents(const std::string &jsonStr) {  // okay std namespace
     // FL_WARN("*** jsUpdateUiComponents ASYNC ENTRY ***");
     // FL_WARN("*** jsUpdateUiComponents ASYNC RECEIVED JSON: " << jsonStr.c_str());
     // FL_WARN("*** jsUpdateUiComponents ASYNC JSON LENGTH: " << jsonStr.length());
-    // FL_WARN("*** jsUpdateUiComponents ASYNC ENTRY: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false") << ", g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "NULL"));
+    // FL_WARN("*** jsUpdateUiComponents ASYNC ENTRY: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false") << ", g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "nullptr"));
     
     // Only initialize if not already initialized - don't force reinitialization
     if (!getUiSystemInitialized()) {
@@ -76,7 +76,7 @@ void jsUpdateUiComponents(const std::string &jsonStr) {
         ensureWasmUiSystemInitialized();
     }
     
-    //FL_WARN("*** jsUpdateUiComponents ASYNC AFTER INIT: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false") << ", g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "NULL"));
+    //FL_WARN("*** jsUpdateUiComponents ASYNC AFTER INIT: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false") << ", g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "nullptr"));
     
     if (getUpdateEngineState()) {
         //FL_WARN("*** ASYNC WASM CALLING BACKEND WITH JSON: " << jsonStr.c_str());
@@ -97,14 +97,14 @@ void jsUpdateUiComponents(const std::string &jsonStr) {
         getUiSystemInitialized() = false;  // Force reinitialization
         ensureWasmUiSystemInitialized();
         
-        FL_WARN("*** ASYNC AFTER EMERGENCY REINIT: g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "NULL"));
+        FL_WARN("*** ASYNC AFTER EMERGENCY REINIT: g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "nullptr"));
         
         if (getUpdateEngineState()) {
             FL_WARN("*** ASYNC EMERGENCY REINIT SUCCESSFUL - retrying JSON processing");
             getUpdateEngineState()(jsonStr.c_str());
             FL_WARN("*** ASYNC EMERGENCY RETRY COMPLETED SUCCESSFULLY");
         } else {
-            FL_WARN("*** ASYNC EMERGENCY REINIT FAILED - g_updateEngineState still NULL");
+            FL_WARN("*** ASYNC EMERGENCY REINIT FAILED - g_updateEngineState still nullptr");
             return; // Early return on failure
         }
     }
@@ -116,7 +116,7 @@ void jsUpdateUiComponents(const std::string &jsonStr) {
  */
 void ensureWasmUiSystemInitialized() {
     // FL_WARN("*** ASYNC CODE UPDATE VERIFICATION: This message confirms the C++ code has been rebuilt! ***");
-    // FL_WARN("*** ensureWasmUiSystemInitialized ASYNC ENTRY: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false") << ", g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "NULL"));
+    // FL_WARN("*** ensureWasmUiSystemInitialized ASYNC ENTRY: g_uiSystemInitialized=" << (getUiSystemInitialized() ? "true" : "false") << ", g_updateEngineState=" << (getUpdateEngineState() ? "VALID" : "nullptr"));
     
     // Return early if already initialized - CRITICAL FIX
     if (getUiSystemInitialized()) {
@@ -127,46 +127,33 @@ void ensureWasmUiSystemInitialized() {
     if (!getUiSystemInitialized() || !getUpdateEngineState()) {
         FL_WARN("*** ASYNC WASM INITIALIZING UI SYSTEM ***");
         
-        // Create async-aware UI update handler with error handling via early return
+        // Create UI update handler that posts message to main thread
+        // In PROXY_TO_PTHREAD mode, C++ runs in worker thread, UI manager runs on main thread
         JsonUiUpdateOutput updateJsHandler = [](const char* jsonStr) {
             if (!jsonStr) {
-                FL_WARN("*** ASYNC UI UPDATE HANDLER ERROR: Received null jsonStr");
+                FL_WARN("*** UI UPDATE HANDLER ERROR: Received null jsonStr");
                 return; // Early return on error
             }
-            
-            // Detect if this is UI element definitions (JSON array) or UI state updates (JSON object)
-            if (jsonStr[0] == '[') {
-                // This is a JSON array of UI element definitions - route directly to UI manager
-                FL_WARN("*** ROUTING UI ELEMENT DEFINITIONS DIRECTLY TO UI MANAGER");
-                
-                // Call UI manager directly to avoid circular event loops
-                EM_ASM({
-                    try {
-                        const jsonStr = UTF8ToString($0);
-                        const uiElements = JSON.parse(jsonStr);
-                        
-                        // Log the inbound event to the inspector if available
-                        if (window.jsonInspector) {
-                            window.jsonInspector.logInboundEvent(uiElements, 'C++ → JS (Direct)');
+
+            // Post message to main thread with UI JSON
+            // Main thread will call uiManager.addUiElements()
+            EM_ASM({
+                try {
+                    const jsonStr = UTF8ToString($0);
+                    const uiElements = JSON.parse(jsonStr);
+
+                    // Post message to main thread for UI processing
+                    // Worker context: postMessage sends to main thread
+                    postMessage({
+                        type: 'ui_elements_add',
+                        payload: {
+                            elements: uiElements
                         }
-                        
-                        // Add UI elements directly using UI manager (bypass callback to avoid loops)
-                        if (window.uiManager && typeof window.uiManager.addUiElements === 'function') {
-                            window.uiManager.addUiElements(uiElements);
-                            console.log('UI elements added directly by C++ routing:', uiElements);
-                        } else {
-                            console.warn('UI Manager not available for direct routing');
-                        }
-                        
-                    } catch (error) {
-                        console.error('Error in direct UI element routing:', error);
-                    }
-                }, jsonStr);
-            } else {
-                // This is a JSON object of UI state updates - route to update system
-                FL_WARN("*** ROUTING UI STATE UPDATES TO updateJs");
-                fl::updateJs(jsonStr);
-            }
+                    });
+                } catch (error) {
+                    console.error('Error posting UI message from worker:', error);
+                }
+            }, jsonStr);
         };
         
         // Initialize with error checking via early return
@@ -204,12 +191,12 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE void jsUpdateUiComponents(const char* jsonStr) {
         // Input validation with early return
         if (!jsonStr) {
-            FL_WARN("*** ASYNC C BINDING: Received NULL jsonStr");
+            FL_WARN("*** ASYNC C BINDING: Received nullptr jsonStr");
             return;
         }
         
         // Call the async-aware C++ implementation
-        fl::jsUpdateUiComponents(std::string(jsonStr));
+        fl::jsUpdateUiComponents(std::string(jsonStr));  // okay std namespace
     }
 }
 

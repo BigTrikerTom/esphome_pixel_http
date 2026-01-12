@@ -1,13 +1,14 @@
 #pragma once
 #include "esphome.h"
 #include <FastLED.h>
+#include <ESPAsyncWebServer.h>
 
 namespace esphome {
 namespace pixel_http {
 
 class PixelHTTPComponent : public Component {
  public:
-  PixelHTTPComponent(int num_leds, int pin);
+  PixelHTTPComponent(int num_leds, int pin, int port);
 
   void setup() override;
   void loop() override;
@@ -18,7 +19,10 @@ class PixelHTTPComponent : public Component {
  private:
   int num_leds_;
   int pin_;
+  int port_;
+
   CRGB *leds_;
+  AsyncWebServer *server_;
 };
 
 }  // namespace pixel_http

@@ -1,27 +1,28 @@
 #include "pixel_http.h"
-#include <ArduinoJson.h>
 
 namespace esphome {
 namespace pixel_http {
 
 PixelHTTPComponent::PixelHTTPComponent(int num_leds) : NUM_LEDS(num_leds) {
-  leds = new CRGB[NUM_LEDS];  // dynamisches Array
+  leds = new CRGB[NUM_LEDS];
 }
 
 void PixelHTTPComponent::setup() {
+  // FastLED Setup
   FastLED.addLeds<WS2812, 27, GRB>(leds, NUM_LEDS);
   FastLED.clear();
   FastLED.show();
 
-  // ESPHome Services registrieren
+  // Service: Pixel setzen
   App.register_service("pixel_http.set_pixels", [this](std::vector<std::string> args){
     if (args.empty()) return;
     DynamicJsonDocument doc(4096);
-    DeserializationError error = deserializeJson(doc, args[0]);
+    auto error = deserializeJson(doc, args[0]);
     if (error) return;
     this->set_pixels_from_json(doc.as<JsonArray>());
   });
 
+  // Service: Framebuffer auslesen
   App.register_service("pixel_http.get_pixels", [this](std::vector<std::string> args){
     DynamicJsonDocument doc(4096);
     JsonArray arr = doc.to<JsonArray>();
@@ -38,7 +39,9 @@ void PixelHTTPComponent::setup() {
   });
 }
 
-void PixelHTTPComponent::loop() {}
+void PixelHTTPComponent::loop() {
+  // optional: Animationen hier laufen lassen
+}
 
 void PixelHTTPComponent::show() {
   FastLED.show();

@@ -1,10 +1,6 @@
 #pragma once
-
 #include "esphome.h"
 #include <FastLED.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <AsyncWebSocket.h>
 
 namespace esphome {
 namespace pixel_http {
@@ -16,14 +12,11 @@ class PixelHTTPComponent : public Component {
   void loop() override;
 
   void show();
+  void set_pixel(int index, int r, int g, int b);
+  void set_pixels_from_json(JsonArray array); // JSON Array für /set
 
  private:
-  void setupHttpEndpoints();
-  void setupWebSocket();
-
-  CRGB leds[120];  // Anzahl LEDs anpassen
-  AsyncWebServer *server;
-  AsyncWebSocket *ws;
+  CRGB leds[110]; // neue LED-Anzahl
 };
 
 }  // namespace pixel_http

@@ -7,16 +7,19 @@ namespace pixel_http {
 
 class PixelHTTPComponent : public Component {
  public:
-  PixelHTTPComponent();
+  PixelHTTPComponent(int num_leds);   // Konstruktor mit LED-Anzahl
   void setup() override;
   void loop() override;
 
   void show();
   void set_pixel(int index, int r, int g, int b);
-  void set_pixels_from_json(JsonArray array); // JSON Array für /set
+  void set_pixels_from_json(JsonArray array);
+
+  int get_num_leds() const { return NUM_LEDS; }
 
  private:
-  CRGB leds[110]; // neue LED-Anzahl
+  int NUM_LEDS;
+  CRGB* leds;  // Dynamisch allociert
 };
 
 }  // namespace pixel_http

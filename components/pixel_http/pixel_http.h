@@ -1,7 +1,7 @@
 #pragma once
 
 #include "esphome.h"
-#include "lib/FastLED/FastLED.h"
+#include "FastLED.h"
 #include <ESPAsyncWebServer.h>  // Für HTTP Server
 
 namespace esphome {

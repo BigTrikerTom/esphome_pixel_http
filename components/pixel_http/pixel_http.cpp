@@ -3,75 +3,27 @@
 namespace esphome {
 namespace pixel_http {
 
-// Globale Instanz
-PixelHTTPComponent *pixel_instance = nullptr;
-
-// Diese Funktion wird von ESPHome beim Start aufgerufen
-void register_pixel_http(int num_leds) {
-  pixel_instance = new PixelHTTPComponent(num_leds);
-  App.register_component(pixel_instance);
-}
-
-PixelHTTPComponent::PixelHTTPComponent(int num_leds) : NUM_LEDS(num_leds) {
-  leds = new CRGB[NUM_LEDS];
+PixelHTTPComponent::PixelHTTPComponent(int num_leds, int pin)
+    : num_leds_(num_leds), pin_(pin) {
+  leds_ = new CRGB[num_leds_];
 }
 
 void PixelHTTPComponent::setup() {
-  // FastLED Setup
-  FastLED.addLeds<WS2812, 27, GRB>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812, 27, GRB>(leds_, num_leds_);
   FastLED.clear();
   FastLED.show();
-
-  // Service: Pixel setzen
-  App.register_service("pixel_http.set_pixels", [this](std::vector<std::string> args){
-    if (args.empty()) return;
-    DynamicJsonDocument doc(4096);
-    auto error = deserializeJson(doc, args[0]);
-    if (error) return;
-    this->set_pixels_from_json(doc.as<JsonArray>());
-  });
-
-  // Service: Framebuffer auslesen
-  App.register_service("pixel_http.get_pixels", [this](std::vector<std::string> args){
-    DynamicJsonDocument doc(4096);
-    JsonArray arr = doc.to<JsonArray>();
-    for(int i=0;i<NUM_LEDS;i++){
-      JsonObject obj = arr.createNestedObject();
-      obj["index"] = i;
-      obj["r"] = leds[i].r;
-      obj["g"] = leds[i].g;
-      obj["b"] = leds[i].b;
-    }
-    std::string out;
-    serializeJson(doc, out);
-    App.publish_event("pixel_http.framebuffer", out);
-  });
 }
 
 void PixelHTTPComponent::loop() {
-  // optional: Animationen hier laufen lassen
+}
+
+void PixelHTTPComponent::set_pixel(int i, uint8_t r, uint8_t g, uint8_t b) {
+  if (i < 0 || i >= num_leds_) return;
+  leds_[i] = CRGB(r, g, b);
 }
 
 void PixelHTTPComponent::show() {
   FastLED.show();
-}
-
-void PixelHTTPComponent::set_pixel(int index, int r, int g, int b) {
-  if(index < 0 || index >= NUM_LEDS) return;
-  leds[index].r = r;
-  leds[index].g = g;
-  leds[index].b = b;
-}
-
-void PixelHTTPComponent::set_pixels_from_json(JsonArray array) {
-  for (JsonObject elem : array) {
-    int index = elem["index"];
-    int r = elem["r"] | 0;
-    int g = elem["g"] | 0;
-    int b = elem["b"] | 0;
-    set_pixel(index, r, g, b);
-  }
-  show();
 }
 
 }  // namespace pixel_http

@@ -1,26 +1,24 @@
 #pragma once
 #include "esphome.h"
 #include <FastLED.h>
-#include <ArduinoJson.h>
 
 namespace esphome {
 namespace pixel_http {
 
 class PixelHTTPComponent : public Component {
  public:
-  PixelHTTPComponent(int num_leds = 110);   // Default 110 LEDs
+  PixelHTTPComponent(int num_leds, int pin);
+
   void setup() override;
   void loop() override;
 
+  void set_pixel(int i, uint8_t r, uint8_t g, uint8_t b);
   void show();
-  void set_pixel(int index, int r, int g, int b);
-  void set_pixels_from_json(JsonArray array);
-
-  int get_num_leds() const { return NUM_LEDS; }
 
  private:
-  int NUM_LEDS;
-  CRGB* leds;  // dynamisch allociert
+  int num_leds_;
+  int pin_;
+  CRGB *leds_;
 };
 
 }  // namespace pixel_http

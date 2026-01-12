@@ -1,7 +1,8 @@
 #pragma once
+
 #include "esphome.h"
 #include <FastLED.h>
-#include <ESPAsyncWebServer.h>
+#include <ESPAsyncWebServer.h>  // Für HTTP Server
 
 namespace esphome {
 namespace pixel_http {

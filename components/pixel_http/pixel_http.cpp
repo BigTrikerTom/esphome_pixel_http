@@ -7,21 +7,19 @@ namespace pixel_http {
 PixelHTTPComponent::PixelHTTPComponent() : server(nullptr), ws(nullptr) {}
 
 void PixelHTTPComponent::setup() {
-  FastLED.addLeds<WS2812, 27, GRB>(leds, 120); // LED_PIN und NUM_LEDS
+  // FastLED Setup
+  FastLED.addLeds<WS2812, 27, GRB>(leds, 120);
   FastLED.clear();
   FastLED.show();
 
-  server = new AsyncWebServer(80);
+  // AsyncWebServer auf Port 81
+  server = new AsyncWebServer(81); // Port geändert von 80 auf 81
   ws = new AsyncWebSocket("/ws");
 
   setupHttpEndpoints();
   setupWebSocket();
 
   server->begin();
-}
-
-void PixelHTTPComponent::loop() {
-  ws->cleanupClients();
 }
 
 // ---------------- HTTP ----------------

@@ -3,10 +3,6 @@
 namespace esphome {
 namespace pixel_http {
 
-PixelHTTPComponent::PixelHTTPComponent(int num_leds) : NUM_LEDS(num_leds) {
-  leds = new CRGB[NUM_LEDS];
-}
-
 // Globale Instanz
 PixelHTTPComponent *pixel_instance = nullptr;
 
@@ -14,6 +10,10 @@ PixelHTTPComponent *pixel_instance = nullptr;
 void register_pixel_http(int num_leds) {
   pixel_instance = new PixelHTTPComponent(num_leds);
   App.register_component(pixel_instance);
+}
+
+PixelHTTPComponent::PixelHTTPComponent(int num_leds) : NUM_LEDS(num_leds) {
+  leds = new CRGB[NUM_LEDS];
 }
 
 void PixelHTTPComponent::setup() {

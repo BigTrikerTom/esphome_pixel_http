@@ -1,7 +1,7 @@
 #pragma once
 
 #include "esphome.h"
-#include <NeoPixelBus.h>
+#include "esp32_rmt_led_strip/esp32_rmt_led_strip.h"
 #include <ESPAsyncWebServer.h>
 
 namespace esphome {
@@ -14,18 +14,17 @@ class PixelHTTPComponent : public Component {
   void setup() override;
   void loop() override;
 
+  // Pixel manipulieren
+  void set_pixel(int i, uint8_t r, uint8_t g, uint8_t b);
+  void show();
+
  private:
   int num_leds_;
   int pin_;
   int port_;
 
-  // Framebuffer
-  RgbColor *framebuffer_;
-
-  // NeoPixelBus RMT driver
-  NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod> *strip_;
-
-  // HTTP Server
+  ESP32RMTLEDStrip *strip_;
+  std::vector<CRGB> framebuffer_;
   AsyncWebServer *server_;
 };
 

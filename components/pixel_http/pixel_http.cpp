@@ -6,28 +6,28 @@ namespace pixel_http {
 PixelHTTPComponent::PixelHTTPComponent(int num_leds, int pin, int port)
     : num_leds_(num_leds), pin_(pin), port_(port) {
 
-  framebuffer_ = new RgbColor[num_leds_];
-  strip_ = new NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod>(num_leds_, pin_);
+  framebuffer_.resize(num_leds_);
+  strip_ = new ESP32RMTLEDStrip();
   server_ = new AsyncWebServer(port_);
 }
 
 void PixelHTTPComponent::setup() {
-  // LED Driver starten
-  strip_->Begin();
-  strip_->Show();
+  // LED Strip initialisieren
+  ESP32RMTLEDStripConfig config;
+  config.pin = pin_;
+  config.num_leds = num_leds_;
+  config.type = LED_TYPE_WS2812;
+  config.rgb_order = RGB_ORDER_GRB;
+  strip_->setup(config);
+  strip_->show();
 
-  // Framebuffer initialisieren (alles aus)
-  for (int i = 0; i < num_leds_; i++) {
-    framebuffer_[i] = RgbColor(0, 0, 0);
-  }
-
-  // HTTP: RAW Framebuffer Dump
+  // HTTP: RAW Framebuffer
   server_->on("/pixels.bin", HTTP_GET, [this](AsyncWebServerRequest *request) {
     request->send_P(
         200,
         "application/octet-stream",
-        (uint8_t *)framebuffer_,
-        num_leds_ * sizeof(RgbColor)
+        (uint8_t *)framebuffer_.data(),
+        framebuffer_.size() * sizeof(CRGB)
     );
   });
 
@@ -46,11 +46,23 @@ void PixelHTTPComponent::setup() {
 }
 
 void PixelHTTPComponent::loop() {
-  // Framebuffer → Strip übertragen
+  // Framebuffer → LED Strip übertragen
   for (int i = 0; i < num_leds_; i++) {
-    strip_->SetPixelColor(i, framebuffer_[i]);
+    strip_->set_pixel_color(i, framebuffer_[i].r, framebuffer_[i].g, framebuffer_[i].b);
   }
-  strip_->Show();
+  strip_->show();
+}
+
+void PixelHTTPComponent::set_pixel(int i, uint8_t r, uint8_t g, uint8_t b) {
+  if (i < 0 || i >= num_leds_) return;
+  framebuffer_[i] = CRGB(r, g, b);
+}
+
+void PixelHTTPComponent::show() {
+  for (int i = 0; i < num_leds_; i++) {
+    strip_->set_pixel_color(i, framebuffer_[i].r, framebuffer_[i].g, framebuffer_[i].b);
+  }
+  strip_->show();
 }
 
 }  // namespace pixel_http

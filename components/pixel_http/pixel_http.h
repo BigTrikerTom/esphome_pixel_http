@@ -1,8 +1,8 @@
 #pragma once
 
 #include "esphome.h"
-#include "FastLED.h"
-#include <ESPAsyncWebServer.h>  // Für HTTP Server
+#include <NeoPixelBus.h>
+#include <ESPAsyncWebServer.h>
 
 namespace esphome {
 namespace pixel_http {
@@ -14,15 +14,18 @@ class PixelHTTPComponent : public Component {
   void setup() override;
   void loop() override;
 
-  void set_pixel(int i, uint8_t r, uint8_t g, uint8_t b);
-  void show();
-
  private:
   int num_leds_;
   int pin_;
   int port_;
 
-  CRGB *leds_;
+  // Framebuffer
+  RgbColor *framebuffer_;
+
+  // NeoPixelBus RMT driver
+  NeoPixelBus<NeoGrbFeature, NeoEsp32Rmt0Ws2812xMethod> *strip_;
+
+  // HTTP Server
   AsyncWebServer *server_;
 };
 

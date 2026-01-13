@@ -1,6 +1,4 @@
 # component.yaml
 name: pixel_http
 version: "1.0"
-# Dependency für die FastLED Bibliothek
-dependencies:
-  - FastLED
+
